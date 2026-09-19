@@ -4,6 +4,47 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0-alpha] - 2026-09-19
+### Added
+* **Phase 6: Loan Amortization & Insurance Management**
+  * Flyway migration `V4__loan_and_insurance_enhancements.sql`:
+    * Enhanced `loans` table with `lender_name`, `loan_type`, `interest_type` (`FIXED`, `VARIABLE`), `payment_frequency`, `tenure_months`, `monthly_emi`, `emi_due_day`, `start_date`, `end_date`, `total_principal_paid`, `total_interest_paid`, `document_id` (FK to `documents`), `is_deleted`.
+    * Created `loan_payments` table supporting `payment_amount`, `principal_component`, `interest_component`, `payment_date`, `payment_type` (`REGULAR_EMI`, `PARTIAL_PREPAYMENT`, `FULL_CLOSURE`), `prepayment_strategy` (`REDUCE_TENURE`, `REDUCE_EMI`), `transaction_ref`, `notes`.
+    * Enhanced `insurance_policies` table with `policy_name`, `provider_name`, `policy_type`, `coverage_amount`, `premium_frequency`, `start_date`, `expiry_date`, `next_renewal_date`, `dependent_id` (FK to `dependents`), `document_id` (FK to `documents`), JSONB `metadata`, `is_deleted`.
+    * Enhanced `reminders` table with `status` (`PENDING`, `DISMISSED`, `SNOOZED`, `COMPLETED`), `due_at`, `reminder_type`, `target_entity_type`, `target_entity_id`, and multi-tenant performance indexes.
+  * Pure Domain Mathematical Amortization Engine (`LoanAmortizationEngine`):
+    * Standard reducing-balance mathematical formula: $EMI = P \times \frac{r(1+r)^n}{(1+r)^n - 1}$.
+    * Zero-interest ($r=0$) handling: $EMI = \frac{P}{n}$.
+    * Strict `BigDecimal` calculation pipeline with `MathContext.DECIMAL128` intermediate precision and `RoundingMode.HALF_UP` scale 2 at monetary boundaries. Zero floating-point types (`double`/`float`).
+    * Exact penny rounding reconciliation on final installment ($C_n = 0.00$, $P_n = \text{openingPrincipal}$).
+    * Automated validation of mathematical invariants:
+      1. $\sum \text{principalComponent} = \text{original principal}$ (subject to prepayments).
+      2. $\text{closing principal} = 0.00$ on final installment.
+      3. $\text{total payments} = \text{principal} + \text{calculated interest} \pm \text{explicitly modeled adjustments}$.
+  * Loan Prepayment & Early Closure Engine:
+    * Prepayments apply 100% directly to outstanding principal ($0.00 interest component).
+    * `REDUCE_TENURE` strategy: maintains existing monthly EMI and shortens loan tenure.
+    * `REDUCE_EMI` strategy: maintains remaining tenure and recomputes lower monthly EMI.
+    * `FULL_CLOSURE` payment: verifies exact remaining balance, sets loan status to `CLOSED` and balance to `0.00`.
+  * Loan Portfolio Aggregation (`LoanAnalyticsJdbcRepository`):
+    * High-performance SQL aggregation via Spring `NamedParameterJdbcTemplate` for active loan count, total outstanding balance, total monthly EMI commitment, total principal paid, and total interest paid.
+  * Insurance Management & Core Reminder Subsystem Synchronization:
+    * Full CRUD for insurance policies across all categories (`HEALTH`, `LIFE`, `VEHICLE`, `HOME_PROPERTY`, etc.).
+    * Automatic synchronization with core `reminders` table (`reminder_type = 'INSURANCE_RENEWAL'`, `target_entity_type = 'INSURANCE_POLICY'`).
+    * Policy renewal (`POST /api/v1/insurance/{id}/renew`) advances expiry date, records new premium, and updates linked reminder due date.
+    * Policy soft-deletion dismisses linked renewal reminder.
+    * Upcoming renewals query (`GET /api/v1/insurance/renewals/upcoming?windowDays=30`) for proactive alerting.
+    * Cross-module tenant validation: verifies linked `document_id` and `dependent_id` belong to the authenticated user.
+  * Multi-Tenant Resource Authorization:
+    * All loans, payments, amortization schedules, insurance policies, and renewal reminders strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+    * Cross-tenant access returns RFC 7807 `404 Not Found`.
+    * Unique constraint duplicates return RFC 7807 `409 Conflict`.
+  * Automated and Live Verification:
+    * 21 new automated tests (11 in pure engine `LoanAmortizationEngineTest`, 6 in `LoanControllerTest`, 4 in `InsuranceControllerTest`), bringing total automated test suite to 63 passed tests (0 failures, 0 errors).
+    * 15-step live HTTP verification passed over Tomcat 8080 against PostgreSQL 18.
+
+---
+
 ## [0.5.0-alpha] - 2026-09-19
 ### Added
 * **Phase 5: Personal Finance & Monthly Budgeting**

@@ -47,6 +47,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(error);
     }
 
+    @ExceptionHandler(DuplicateResourceException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateResource(DuplicateResourceException ex, HttpServletRequest request) {
+        log.warn("Conflict/duplicate resource at [{}]: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse error = ErrorResponse.builder()
+                .title("Conflict")
+                .status(HttpStatus.CONFLICT.value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(error);
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex, HttpServletRequest request) {
         List<ErrorResponse.ValidationError> validationErrors = ex.getBindingResult().getFieldErrors().stream()

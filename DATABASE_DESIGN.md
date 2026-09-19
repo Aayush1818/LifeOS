@@ -390,22 +390,27 @@ CREATE TABLE insurance_policies (
     dependent_id UUID REFERENCES dependents(id) ON DELETE SET NULL,
     document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
     policy_number VARCHAR(100) NOT NULL,
+    policy_name VARCHAR(200),
     provider_name VARCHAR(150) NOT NULL,
-    policy_type VARCHAR(50) NOT NULL, -- HEALTH, LIFE, VEHICLE, HOME, TRAVEL, OTHER
+    policy_type VARCHAR(50) NOT NULL, -- HEALTH, LIFE, VEHICLE, HOME_PROPERTY, TRAVEL, DISABILITY, OTHER
     coverage_amount NUMERIC(15,2) NOT NULL,
     premium_amount NUMERIC(12,2) NOT NULL,
-    premium_frequency VARCHAR(30) NOT NULL, -- MONTHLY, QUARTERLY, ANNUALLY
+    premium_frequency VARCHAR(30) NOT NULL, -- MONTHLY, QUARTERLY, SEMI_ANNUALLY, ANNUALLY
     start_date DATE NOT NULL,
     expiry_date DATE NOT NULL,
     next_renewal_date DATE NOT NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, EXPIRED, CANCELLED
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, EXPIRED, RENEWED, CANCELLED
+    notes TEXT,
+    metadata JSONB DEFAULT '{}'::jsonb,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_insurance_user_policy UNIQUE (user_id, policy_number)
 );
 
 CREATE INDEX idx_insurance_user ON insurance_policies(user_id) WHERE NOT is_deleted;
-CREATE INDEX idx_insurance_renewal ON insurance_policies(next_renewal_date) WHERE status = 'ACTIVE' AND NOT is_deleted;
+CREATE INDEX idx_insurance_renewal ON insurance_policies(user_id, next_renewal_date) WHERE status = 'ACTIVE' AND NOT is_deleted;
+CREATE INDEX idx_insurance_dependent ON insurance_policies(dependent_id) WHERE dependent_id IS NOT NULL AND NOT is_deleted;
 
 -- ============================================================================
 -- 5. LOANS & AMORTIZATION
@@ -416,22 +421,29 @@ CREATE TABLE loans (
     document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
     loan_account_number VARCHAR(100) NOT NULL,
     lender_name VARCHAR(150) NOT NULL,
-    loan_type VARCHAR(50) NOT NULL, -- HOME, VEHICLE, EDUCATION, PERSONAL, OTHER
+    loan_type VARCHAR(50) NOT NULL, -- HOME, VEHICLE, EDUCATION, PERSONAL, BUSINESS, OTHER
     principal_amount NUMERIC(15,2) NOT NULL,
     outstanding_balance NUMERIC(15,2) NOT NULL,
     interest_rate NUMERIC(5,2) NOT NULL,
+    interest_type VARCHAR(20) NOT NULL DEFAULT 'FIXED', -- FIXED, VARIABLE
+    payment_frequency VARCHAR(20) NOT NULL DEFAULT 'MONTHLY', -- MONTHLY, BI_WEEKLY, QUARTERLY
     tenure_months INT NOT NULL,
     monthly_emi NUMERIC(12,2) NOT NULL,
     emi_due_day INT NOT NULL CHECK (emi_due_day BETWEEN 1 AND 31),
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, CLOSED, DEFAULTED
+    total_principal_paid NUMERIC(15,2) NOT NULL DEFAULT 0.00,
+    total_interest_paid NUMERIC(15,2) NOT NULL DEFAULT 0.00,
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, CLOSED, DEFAULTED, PAID_OFF
+    notes TEXT,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_loans_user_account UNIQUE (user_id, loan_account_number)
 );
 
 CREATE INDEX idx_loans_user ON loans(user_id) WHERE NOT is_deleted;
+CREATE INDEX idx_loans_user_status ON loans(user_id, status) WHERE NOT is_deleted;
 
 CREATE TABLE loan_payments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -440,11 +452,15 @@ CREATE TABLE loan_payments (
     principal_component NUMERIC(12,2) NOT NULL,
     interest_component NUMERIC(12,2) NOT NULL,
     payment_date DATE NOT NULL,
+    payment_type VARCHAR(30) NOT NULL DEFAULT 'REGULAR_EMI', -- REGULAR_EMI, PARTIAL_PREPAYMENT, FULL_CLOSURE
+    prepayment_strategy VARCHAR(30), -- REDUCE_TENURE, REDUCE_EMI
     transaction_ref VARCHAR(100),
+    notes TEXT,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_loan_payments_loan ON loan_payments(loan_id);
+CREATE INDEX idx_loan_payments_date ON loan_payments(loan_id, payment_date);
 
 -- ============================================================================
 -- 6. HEALTH & DOCTOR APPOINTMENTS (NON-DIAGNOSTIC)

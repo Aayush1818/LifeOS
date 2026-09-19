@@ -523,65 +523,219 @@
 
 ---
 
-## 5. Loans & Liabilities (`/api/v1/loans`)
+## 5. Loans & Amortization Engine (`/api/v1/loans`)
 
-### `GET /api/v1/loans`
-* **Response `200 OK`**:
-  ```json
-  [
-    {
-      "id": "8d3e91ca-...",
-      "lenderName": "HDFC Bank",
-      "loanType": "HOME",
-      "principalAmount": 4500000.00,
-      "outstandingBalance": 3820000.00,
-      "interestRate": 8.45,
-      "monthlyEmi": 38900.00,
-      "emiDueDay": 5,
-      "status": "ACTIVE"
-    }
-  ]
-  ```
-
-### `POST /api/v1/loans/{id}/payments`
+### `POST /api/v1/loans`
+Creates a new loan obligation and auto-computes the monthly EMI using deterministic reducing-balance amortization math ($EMI = P \times \frac{r(1+r)^n}{(1+r)^n - 1}$).
 * **Request Body**:
   ```json
   {
-    "amount": 38900.00,
-    "principalComponent": 12000.00,
-    "interestComponent": 26900.00,
-    "paymentDate": "2026-09-05",
-    "transactionRef": "TXN-902184"
+    "loanAccountNumber": "MORTGAGE-00129",
+    "lenderName": "Apex Premier Lending",
+    "loanType": "HOME",
+    "principalAmount": 300000.00,
+    "interestRate": 6.50,
+    "interestType": "FIXED",
+    "paymentFrequency": "MONTHLY",
+    "tenureMonths": 360,
+    "emiDueDay": 1,
+    "startDate": "2026-10-01",
+    "documentId": "4b92b6a2-...",
+    "notes": "30-Year Fixed Primary Residence Mortgage"
+  }
+  ```
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "8d3e91ca-...",
+      "loanAccountNumber": "MORTGAGE-00129",
+      "lenderName": "Apex Premier Lending",
+      "loanType": "HOME",
+      "principalAmount": 300000.00,
+      "outstandingBalance": 300000.00,
+      "interestRate": 6.50,
+      "interestType": "FIXED",
+      "paymentFrequency": "MONTHLY",
+      "tenureMonths": 360,
+      "monthlyEmi": 1896.20,
+      "emiDueDay": 1,
+      "startDate": "2026-10-01",
+      "endDate": "2056-10-01",
+      "totalPrincipalPaid": 0.00,
+      "totalInterestPaid": 0.00,
+      "status": "ACTIVE",
+      "documentId": "4b92b6a2-...",
+      "createdAt": "2026-09-19T12:00:00Z"
+    }
+  }
+  ```
+
+### `GET /api/v1/loans`
+Retrieves paginated loans for the authenticated user, optionally filtered by `status`.
+* **Query Parameters**: `status=ACTIVE`, `page=0`, `size=20`
+
+### `GET /api/v1/loans/{id}`
+Retrieves details of a specific loan. Returns RFC 7807 `404 Not Found` if nonexistent or owned by another tenant.
+
+### `GET /api/v1/loans/{id}/schedule`
+Generates the complete mathematical reducing-balance amortization schedule with final installment penny reconciliation ($C_n = 0.00$).
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "loanId": "8d3e91ca-...",
+      "principal": 300000.00,
+      "annualInterestRate": 6.50,
+      "tenureMonths": 360,
+      "monthlyPayment": 1896.20,
+      "totalPayment": 682636.71,
+      "totalInterest": 382636.71,
+      "installments": [
+        {
+          "installmentNumber": 1,
+          "dueDate": "2026-11-01",
+          "openingPrincipal": 300000.00,
+          "payment": 1896.20,
+          "principalComponent": 271.20,
+          "interestComponent": 1625.00,
+          "closingPrincipal": 299728.80
+        },
+        ...
+        {
+          "installmentNumber": 360,
+          "dueDate": "2056-10-01",
+          "openingPrincipal": 1886.03,
+          "payment": 1896.25,
+          "principalComponent": 1886.03,
+          "interestComponent": 10.22,
+          "closingPrincipal": 0.00
+        }
+      ]
+    }
+  }
+  ```
+
+### `POST /api/v1/loans/{id}/payments`
+Records a regular EMI payment, partial prepayment, or full early closure. Prepayments apply 100% directly to principal.
+* **Request Body (Regular EMI)**:
+  ```json
+  {
+    "paymentAmount": 1896.20,
+    "paymentDate": "2026-11-01",
+    "paymentType": "REGULAR_EMI",
+    "transactionRef": "TXN-AUTO-DEBIT-01"
+  }
+  ```
+* **Request Body (Partial Prepayment)**:
+  ```json
+  {
+    "paymentAmount": 10000.00,
+    "paymentDate": "2026-11-15",
+    "paymentType": "PARTIAL_PREPAYMENT",
+    "prepaymentStrategy": "REDUCE_EMI",
+    "transactionRef": "TXN-PREPAY-01"
+  }
+  ```
+* **Request Body (Full Early Closure)**:
+  ```json
+  {
+    "paymentAmount": 289728.80,
+    "paymentDate": "2026-12-01",
+    "paymentType": "FULL_CLOSURE",
+    "transactionRef": "TXN-WIRE-CLOSE"
+  }
+  ```
+
+### `GET /api/v1/loans/analytics/summary`
+Calculates portfolio-wide aggregations across active loans via direct JDBC query pushdown.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "activeLoansCount": 2,
+      "totalOriginalPrincipal": 320000.00,
+      "totalOutstandingBalance": 314243.77,
+      "totalMonthlyEmi": 2819.10,
+      "totalPrincipalPaid": 5756.23,
+      "totalInterestPaid": 333.34
+    }
   }
   ```
 
 ---
 
-## 6. Insurance Portfolio (`/api/v1/insurance`)
+## 6. Insurance Portfolio & Renewal Tracking (`/api/v1/insurance`)
 
-### `GET /api/v1/insurance/policies`
-* Returns active and past policies, renewal dates, premium schedules, and coverage amounts.
-
-### `POST /api/v1/insurance/compare`
-* Deep semantic comparison between two policy document IDs.
+### `POST /api/v1/insurance`
+Creates a new insurance policy, links to documents/dependents with tenant verification, and automatically synchronizes a renewal reminder in the core `reminders` table.
 * **Request Body**:
   ```json
   {
-    "previousPolicyDocumentId": "4b92b6a2-...",
-    "renewalPolicyDocumentId": "9c12b7a8-..."
+    "policyNumber": "HEALTH-BCBS-2026-99",
+    "policyName": "Comprehensive Family Health Plan",
+    "providerName": "Blue Cross Blue Shield",
+    "policyType": "HEALTH",
+    "coverageAmount": 500000.00,
+    "premiumAmount": 450.00,
+    "premiumFrequency": "MONTHLY",
+    "startDate": "2026-09-19",
+    "expiryDate": "2027-09-19",
+    "dependentId": "cdcc6ef1-...",
+    "documentId": "4b92b6a2-...",
+    "notes": "Covers primary policyholder and dependent child"
   }
   ```
+
+### `GET /api/v1/insurance`
+Retrieves paginated policies for the authenticated user, optionally filtered by `type` or `status`.
+
+### `GET /api/v1/insurance/{id}`
+Retrieves insurance policy details by ID. Returns RFC 7807 `404 Not Found` if not owned by the authenticated tenant.
+
+### `POST /api/v1/insurance/{id}/renew`
+Renews an existing policy, updates the expiration date and premium amount, and automatically advances the linked reminder in the `reminders` table.
+* **Request Body**:
+  ```json
+  {
+    "newExpiryDate": "2028-09-19",
+    "newPremiumAmount": 475.00,
+    "notes": "Policy renewed for Year 2"
+  }
+  ```
+
+### `GET /api/v1/insurance/renewals/upcoming`
+Retrieves policies due for renewal within a configurable time window (default 30 days).
+* **Query Parameters**: `windowDays=60`
 * **Response `200 OK`**:
   ```json
   {
-    "premiumDifference": 1200.00,
-    "coverageDifference": 500000.00,
-    "clausesChanged": [
-      "Room rent capping removed in renewal policy",
-      "Co-pay deductible increased from 10% to 15% for pre-existing diseases"
-    ]
+    "success": true,
+    "data": {
+      "windowDays": 60,
+      "upcomingCount": 1,
+      "policies": [
+        {
+          "id": "7af9b2db-...",
+          "policyNumber": "HEALTH-BCBS-2026-99",
+          "policyName": "Comprehensive Family Health Plan",
+          "providerName": "Blue Cross Blue Shield",
+          "policyType": "HEALTH",
+          "coverageAmount": 500000.00,
+          "premiumAmount": 450.00,
+          "expiryDate": "2027-09-19",
+          "status": "ACTIVE"
+        }
+      ]
+    }
   }
   ```
+
+### `DELETE /api/v1/insurance/{id}`
+Soft-deletes the insurance policy and automatically dismisses the linked renewal reminder in the core `reminders` table.
 
 ---
 

@@ -120,10 +120,24 @@ LifeOS Architecture
 * **Heuristic Duplicate Detection**: Flags suspicious duplicate submissions on same user, date, amount, and category without blocking valid repeat entries.
 * **Multi-Tenant Isolation**: Strict resource-level authorization returning RFC 7807 `404 Not Found` for cross-tenant access attempts.
 
-### D. Insurance & Loan Portfolios
-* Insurance tracker for Health, Life, Vehicle, Property, and Travel policies.
-* Policy comparison engine to cross-examine clauses between policy renewals.
-* Loan amortization tracker computing exact EMI, principal, interest, and remaining tenure.
+### D. Loan Amortization & Insurance Portfolio (Phase 6 Implemented)
+* **Pure Domain Mathematical Amortization Engine**:
+  * Deterministic reducing-balance EMI formula ($EMI = P \times \frac{r(1+r)^n}{(1+r)^n - 1}$) and zero-interest loans ($EMI = \frac{P}{n}$).
+  * Strict `BigDecimal` calculation pipeline with `MathContext.DECIMAL128` intermediate precision and `RoundingMode.HALF_UP` scale 2 at monetary boundaries (zero floating-point types).
+  * Exact penny rounding reconciliation on final installment ensuring final closing principal is strictly `0.00`.
+  * Verified mathematical invariants: $\sum \text{principalComponent} = \text{originalPrincipal}$, final $C_n = 0.00$, and $\text{totalPayments} = P + I$.
+* **Flexible Prepayments & Early Closure**:
+  * Partial prepayments apply 100% directly to principal ($0.00 interest component).
+  * Dual prepayment strategies: `REDUCE_TENURE` (keeps existing EMI, reduces loan duration) or `REDUCE_EMI` (recomputes lower monthly EMI for remaining tenure).
+  * Full early closure: verifies exact remaining balance, transitions status to `CLOSED`, and zeros out balance.
+* **Direct JDBC Portfolio Aggregation**: High-performance SQL aggregation pushdown (`LoanAnalyticsJdbcRepository`) calculating active loans count, total outstanding balance, total monthly EMI commitment, and lifetime principal/interest paid.
+* **Insurance Portfolio Management & Reminder Synchronization**:
+  * Full lifecycle tracking for Health, Life, Vehicle, Home/Property, Travel, and Disability policies.
+  * Cross-tenant validation linking policies to verified family dependents and stored documents.
+  * Automatic synchronization with core `reminders` subsystem (`INSURANCE_RENEWAL` reminder type) on policy creation, updates, and renewals.
+  * Policy renewal workflow (`/api/v1/insurance/{id}/renew`) updating expiry date, adjusting premium, and advancing the linked renewal reminder.
+  * Proactive upcoming renewals scanning (`/api/v1/insurance/renewals/upcoming?windowDays=30`).
+  * Soft-deletion automatically dismisses linked renewal reminders.
 
 ### E. Health & Appointments (Non-Diagnostic)
 * Organization system for doctors, hospitals, appointments, and prescriptions.

@@ -116,7 +116,30 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 6. Anti-Hallucination & AI Privacy Boundaries
+## 6. Loans, Amortization & Insurance Security
+
+1. **Multi-Tenant Scoping & Resource Isolation**:
+   * All loans, loan payments, mathematical amortization schedules, insurance policies, and renewal reminders are strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+   * Cross-tenant access attempts return RFC 7807 `404 Not Found` rather than `403 Forbidden` to prevent loan or policy ID enumeration.
+   * Cross-module foreign key verification: referencing a `documentId` or `dependentId` on a loan or insurance policy validates that the referenced entity belongs to the authenticated user and is not soft-deleted. Foreign tenant references trigger RFC 7807 `404 Not Found`.
+2. **Mathematical Precision & Amortization Invariants**:
+   * Pure domain amortization engine executes exclusively with `BigDecimal` using `MathContext.DECIMAL128` intermediate calculations and `RoundingMode.HALF_UP` scale 2 at monetary boundaries.
+   * Zero usage of IEEE 754 floating-point types (`float`, `double`), eliminating monetary drift and rounding exploitation.
+   * Exact penny rounding reconciliation on final installment guarantees that closing principal reaches strictly `0.00`.
+   * Automated verification of domain invariants:
+     1. $\sum \text{principalComponent} = \text{originalPrincipal}$ (subject to prepayments).
+     2. Closing principal on final installment $= 0.00$.
+     3. Total payments $= \text{principal} + \text{calculated interest} \pm \text{explicitly modeled adjustments}$.
+3. **Prepayment Integrity & Early Closure Safety**:
+   * Prepayments are applied 100% directly to outstanding principal ($0.00 interest component).
+   * Full early closure (`FULL_CLOSURE`) verifies exact match with remaining balance before transitioning loan status to `CLOSED` and zeroing out outstanding balance.
+4. **Reminder Subsystem Synchronization**:
+   * Insurance renewal reminders synchronize directly into the core `reminders` table (`reminder_type = 'INSURANCE_RENEWAL'`).
+   * Renewal updates automatically advance reminder due dates; policy soft-deletions automatically dismiss active reminders, preventing ghost notification spam.
+
+---
+
+## 7. Anti-Hallucination & AI Privacy Boundaries
 
 1. **Context Window Isolation**: AI conversation sessions strictly inject retrieved chunks tagged with the authenticated user's ID. No cross-tenant document chunks can enter the LLM prompt context.
 2. **No Data Leakage in AI Logs**: Logs sanitize user PII, document binary excerpts, and authentication headers.
@@ -124,7 +147,7 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 6. Secrets Management
+## 8. Secrets Management
 
 * **No Hard-Coded Credentials**: API keys, database passwords, and JWT secrets are injected via system environment variables or `.env` files (ignored in `.gitignore`).
 * **Environment Template**: A fully documented `.env.example` template is provided with production-recommended defaults.

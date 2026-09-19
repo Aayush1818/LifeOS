@@ -125,17 +125,24 @@ com.lifeos
 │   ├── dto                     # Create/UpdateBudgetRequest, BudgetResponse, BudgetStatusResponse
 │   └── entity                  # BudgetEntity (JSONB alert_thresholds)
 │
-├── loan                        # Loans, EMIs & Amortization
+├── loan                        # Loans, Prepayments, Mathematical Amortization Engine
+│   ├── engine                  # LoanAmortizationEngine (Pure deterministic math, DECIMAL128, penny reconciliation)
 │   ├── controller              # LoanController (/api/v1/loans)
-│   ├── service                 # LoanService, AmortizationCalculationService
-│   ├── repository              # LoanRepository, LoanPaymentRepository
+│   ├── service                 # LoanService, LoanAnalyticsService
+│   ├── repository              # LoanRepository, LoanPaymentRepository, LoanAnalyticsJdbcRepository
+│   ├── dto                     # Create/UpdateLoanRequest, LoanResponse, RecordLoanPaymentRequest, AmortizationScheduleResponse
 │   └── entity                  # LoanEntity, LoanPaymentEntity
 │
-├── insurance                   # Policies, Renewals & Coverage Limits
+├── insurance                   # Insurance Portfolio, Policy Renewals & Reminder Sync
 │   ├── controller              # InsuranceController (/api/v1/insurance)
-│   ├── service                 # InsuranceService, PolicyComparisonService
+│   ├── service                 # InsuranceService (Tenant validation, renewal workflow, reminder sync)
 │   ├── repository              # InsurancePolicyRepository
+│   ├── dto                     # Create/UpdateInsuranceRequest, RenewPolicyRequest, InsuranceResponse, UpcomingRenewalsResponse
 │   └── entity                  # InsurancePolicyEntity
+│
+├── reminder                    # Background Scheduling & Due Date Reminders
+│   ├── repository              # ReminderRepository
+│   └── entity                  # ReminderEntity, ReminderStatus
 │
 ├── health                      # Doctors & Appointments (Non-Diagnostic)
 │   ├── controller              # HealthController (/api/v1/health)
