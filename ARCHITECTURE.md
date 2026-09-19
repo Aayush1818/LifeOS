@@ -45,7 +45,7 @@ flowchart TB
     end
 
     subgraph Persistence_Tier["Persistence & Storage Tier"]
-        PostgresDB[("PostgreSQL 16<br/>• pgvector (HNSW Index)<br/>• tsvector (GIN Index)<br/>• Relational Schema")]
+        PostgresDB[("PostgreSQL 16 / 18<br/>• pgvector (HNSW Index)<br/>• tsvector (GIN Index)<br/>• Relational Schema")]
         FileStorage[("Local Encrypted / S3 Storage<br/>(Document Binaries)")]
     end
 
@@ -169,7 +169,7 @@ Within each bounded context, LifeOS adheres to strict separation of concerns:
        │
 [Data Access Layer] ──> Spring Data JPA (Domain records) & Spring Data JDBC (Analytics & Vector search).
        │
-[Database Layer]    ──> PostgreSQL 16 (Tables, Constraints, HNSW Vector Index, GIN Lexical Index).
+[Database Layer]    ──> PostgreSQL 16 / 18 (Tables, Constraints, HNSW Vector Index, GIN Lexical Index).
 ```
 
 ### Key Conventions:

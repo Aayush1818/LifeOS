@@ -40,13 +40,21 @@ Security Boundaries
 ### Stateless JWT with Refresh Token Rotation
 1. **Access Token**:
    - Short-lived: **15 minutes** (`900,000 ms`).
-   - Signed using HMAC-SHA256 (minimum 256-bit secret) or RSA-2048.
-   - Claims include: `sub` (userId), `email`, `role`, `iat`, `exp`.
+   - Signed using **HMAC-SHA512 (`HS512`)** with a cryptographically secure 512-bit secret key.
+   - Claims include: `sub` (userId UUID), `email`, `role`, `iat`, `exp`.
 2. **Refresh Token**:
    - Long-lived: **7 days** (`604,800,000 ms`).
-   - Stored in PostgreSQL `refresh_tokens` table as a secure SHA-256 hash.
-   - Delivered to the client inside an `HttpOnly`, `Secure`, `SameSite=Strict` cookie to prevent Cross-Site Scripting (XSS) extraction.
-   - **Rotation**: Every time `/api/v1/auth/refresh` is called, the used refresh token is permanently revoked and replaced with a fresh token pair.
+   - Generated as 64-character random URL-safe tokens via `java.security.SecureRandom`.
+   - Stored in PostgreSQL `refresh_tokens` table exclusively as a secure SHA-256 hash (`token_hash`).
+   - Supports both `HttpOnly`, `Secure`, `SameSite=Strict` cookie transport and JSON body transport for multi-client support.
+   - **Rotation**: Every time `/api/v1/auth/refresh` is called, the used refresh token is permanently revoked (`is_revoked = true`) and replaced with a fresh token pair.
+   - **Reuse Detection**: Presenting a revoked or previously-used token immediately returns `403 Forbidden` and audits the suspicious event.
+3. **Password Security**:
+   - Stored using **BCrypt** with strength factor 12.
+   - Validated via `@ValidPassword` constraint: minimum 8 characters, at least 1 uppercase letter, 1 lowercase letter, 1 digit, and 1 special character.
+4. **Role-Based Access Control (RBAC)**:
+   - `ROLE_USER`: Standard access to personal domain entities.
+   - `ROLE_ADMIN`: Administrative endpoints guarded by `@PreAuthorize("hasRole('ADMIN')")` and `/api/v1/admin/**`.
 
 ---
 

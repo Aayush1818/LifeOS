@@ -205,7 +205,29 @@
 
 ---
 
-## 5. Document Management (`/api/v1/documents`)
+## 5. Administrative Operations (`/api/v1/admin`)
+
+*Protected by `@PreAuthorize("hasRole('ADMIN')")` and Spring Security role matcher.*
+
+### `GET /api/v1/admin/status`
+* Verifies administrative status and system access.
+* **Headers**: `Authorization: Bearer <admin_jwt>`
+* **Authorization**: Must have `ROLE_ADMIN`. If called by a user with `ROLE_USER`, returns RFC 7807 `403 Forbidden`.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Admin access granted",
+    "data": {
+      "adminAccess": true,
+      "message": "Admin authority confirmed"
+    }
+  }
+  ```
+
+---
+
+## 6. Document Management (`/api/v1/documents`)
 
 ### `POST /api/v1/documents/upload`
 * **Content-Type**: `multipart/form-data`

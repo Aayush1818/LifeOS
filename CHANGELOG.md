@@ -26,8 +26,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     * `GET /api/v1/dependents/{id}` — fetch single dependent with strict owner validation.
     * `PUT /api/v1/dependents/{id}` — update dependent metadata and JSONB attributes.
     * `DELETE /api/v1/dependents/{id}` — soft-delete dependent.
+  * Administrative operations:
+    * `GET /api/v1/admin/status` — guarded by `@PreAuthorize("hasRole('ADMIN')")` and Spring Security role matchers.
   * Standardized RFC 7807 problem details error handling for 401 Unauthorized (`CustomAuthenticationEntryPoint`) and 403 Forbidden (`CustomAccessDeniedHandler`).
-  * Comprehensive test suite: 16 automated integration tests passing (`AuthControllerTest`, `UserControllerTest`, `DependentControllerTest`, `FlywayMigrationTest`, `HealthControllerTest`, `LifeOSApplicationTests`).
+  * Comprehensive test suite: 20 automated integration tests passing across `AuthControllerTest`, `UserControllerTest`, `DependentControllerTest`, `FlywayMigrationTest`, `HealthControllerTest`, `LifeOSApplicationTests`.
   * 13-step live HTTP verification passed over Tomcat 8080 against live PostgreSQL 18.
 
 ---

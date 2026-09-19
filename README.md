@@ -59,7 +59,7 @@ LifeOS Architecture
 └──────────────────────────────┬──────────────────────────────┘
                                │
 ┌──────────────────────────────▼──────────────────────────────┐
-│               PostgreSQL 16 + pgvector DB                   │
+│             PostgreSQL 16 / 18 + pgvector DB                │
 │          (Flyway Migrations, JPA CRUD, JDBC Analytics)      │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -71,9 +71,9 @@ LifeOS Architecture
 ### Backend
 * **Language**: Java 21 LTS (Virtual Threads, Pattern Matching, Records)
 * **Framework**: Spring Boot 3.3.5
-* **Security**: Spring Security 6, JJWT (HMAC-SHA256 / RSA), Argon2/BCrypt
+* **Security**: Spring Security 6, JJWT (HMAC-SHA512), BCrypt (strength 12), Refresh Token Rotation
 * **Persistence**: Spring Data JPA (Domain transactions), Spring Data JDBC (Complex analytics & aggregations)
-* **Database**: PostgreSQL 16 with `pgvector` extension
+* **Database**: PostgreSQL 16 / 18 with native `pgvector` v0.8.6 extension
 * **Database Migrations**: Flyway
 * **Document Processing**: Apache Tika, PDFBox
 * **API Documentation**: OpenAPI 3.0 / Swagger UI (Springdoc)
@@ -146,7 +146,7 @@ LifeOS Architecture
 
 ### Prerequisites
 * Java 21 LTS installed ([Setup Guide](SETUP.md))
-* PostgreSQL 16 with `pgvector` enabled ([Setup Guide](SETUP.md))
+* PostgreSQL 16 / 18 with `pgvector` enabled ([Setup Guide](SETUP.md))
 * Node.js v20+ / npm 10+
 
 ### Clone & Configure

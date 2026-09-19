@@ -236,7 +236,7 @@ erDiagram
 
 ---
 
-## 2. Complete Database DDL Reference (PostgreSQL 16 + pgvector)
+## 2. Complete Database DDL Reference (PostgreSQL 16 / 18 + pgvector)
 
 The following DDL establishes the full database schema. In Phase 2, this serves as the foundational Flyway migration `V1__init_schema.sql`.
 
