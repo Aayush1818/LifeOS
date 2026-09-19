@@ -984,5 +984,17 @@ PostgreSQL generated column `tsv_content` converts English text chunks into inde
   * `entity_type`, `entity_id`, `user_id`, `dependent_id`, `title`, `subtitle`, `content_text`, `category_or_type`, `status`, `amount`, `currency`, `event_date`, `created_at`, `is_deleted`, `tsv_content` (weighted with `setweight` tiers A, B, C).
   * Enables single-pass sub-10ms cross-domain search queries with optimizer predicate pushdown, cover density ranking (`ts_rank_cd`), and highlight extraction (`ts_headline`).
 
+### `V9__document_chunks_enhancements.sql` (Phase 11)
+* Enhanced `document_chunks` table with:
+  * `document_version` (`INT NOT NULL DEFAULT 1`), `section_title` (`VARCHAR(255)`), `token_count` (`INT`), `char_count` (`INT`), `is_active` (`BOOLEAN NOT NULL DEFAULT true`), `embedding_model` (`VARCHAR(100)`), and `updated_at` (`TIMESTAMP WITH TIME ZONE`).
+  * Unique constraint `uq_document_chunks_doc_ver_idx` on `(document_id, document_version, chunk_index)`.
+  * Partial index `idx_chunks_active_user` on `(user_id, is_active) WHERE is_active`.
+  * Composite index `idx_chunks_doc_ver` on `(document_id, document_version)`.
+* Enhanced `documents` table with:
+  * `chunk_count` (`INT DEFAULT 0`), `ingested_at` (`TIMESTAMP WITH TIME ZONE`), and `embedding_model` (`VARCHAR(100)`).
 
-
+### Phase 12: Hybrid RAG Retrieval Query Architecture
+* **Zero Database Migrations Required**: Fully utilizes existing schema, GIN, and HNSW indexes:
+  * **Lexical Candidates Query**: Uses GIN index `idx_chunks_tsv` on `document_chunks.tsv_content` via `ts_rank_cd(c.tsv_content, websearch_to_tsquery('english', :query), 32)` with optimizer predicate pushdown on `user_id = :userId` and `is_active = true`.
+  * **Semantic Candidates Query**: Uses HNSW index `idx_chunks_hnsw` on `document_chunks.embedding` with cosine distance operator `<=>` via `1.0 - (c.embedding <=> CAST(:vectorStr AS vector))` with pushdown on `user_id = :userId` and `is_active = true`.
+  * **Candidate Fusion & Reranking**: In-memory Reciprocal Rank Fusion ($k = 60$) with deterministic cross-signal reranking and provenance generation.

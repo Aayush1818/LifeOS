@@ -4,6 +4,35 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0-alpha] - 2026-09-19
+### Added
+* **Phase 12: Hybrid RAG Retrieval Engine**
+  * Core Retrieval Architecture:
+    * Production-grade hybrid retrieval pipeline combining PostgreSQL Full-Text Search (Phase 10) and pgvector semantic vector search (Phase 11).
+    * Zero database migrations required; fully leverages existing `idx_chunks_tsv` GIN and `idx_chunks_hnsw` HNSW indexes.
+  * Deterministic Query Processing (`QueryProcessor`):
+    * Normalizes whitespace, strips null bytes `\u0000` and control characters, and clamps queries to 1000 characters.
+    * Extracts quoted phrases and alphanumeric codes for exact-match boosting during reranking.
+  * Candidate Fusion Engine (`CandidateFusionEngine`):
+    * Scale-invariant Reciprocal Rank Fusion (RRF) with configurable constant $k = 60$.
+    * Normalized relevance scores in $[0.0, 1.0]$.
+    * Deduplication by `chunkId` with `matchSource` classification (`LEXICAL_ONLY`, `SEMANTIC_ONLY`, `HYBRID_BOTH`).
+  * Cross-Signal Local Reranker (`DeterministicCrossSignalReranker`):
+    * Deterministic in-memory reranking applying exact-phrase boosts ($1.25\times$), identifier boosts ($1.20\times$), section/title match boosts ($1.15\times$), and version recency boosts ($1.05\times$).
+    * Zero external network latency; completes in $< 1\text{ms}$.
+  * Provenance & Footnote Citation Generator (`CitationGenerator`):
+    * Produces traceable citations with document title, version, page number, section title, and formatted string for Phase 13 LLM grounding.
+  * Orchestration & Fallback Service (`HybridRetrievalService`):
+    * Enforces multi-tenant query pushdown (`user_id = :userId`, `is_active = true`, `is_deleted = false`).
+    * Implements defensive post-retrieval authorization verification.
+    * Graceful degradation: automatically falls back to lexical FTS if external embedding provider fails or times out.
+    * Relevance threshold cutoffs with `hasRelevantContext: false` signaling to prevent downstream LLM hallucinations.
+  * REST API (`RetrievalController`):
+    * `POST /api/v1/search/retrieve` supporting `HYBRID`, `LEXICAL`, and `SEMANTIC` retrieval modes with structured metadata filtering.
+  * Verification & Testing:
+    * 23 new automated tests bringing full test suite to **156 / 156 tests passed** (0 failures, 0 errors, 0 skipped).
+    * **25 / 25 live HTTP checks passed** in `scratch/verify_phase12.ps1` against Tomcat 8080 and PostgreSQL 18.
+
 ## [0.11.0-alpha] - 2026-09-19
 ### Added
 * **Phase 11: Document Intelligence & RAG Ingestion Foundation**

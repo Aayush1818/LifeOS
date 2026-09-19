@@ -69,3 +69,22 @@ storage:
     - image/jpeg
     - image/png
     - image/webp
+
+lifeos:
+  rag:
+    embedding:
+      provider: ${RAG_EMBEDDING_PROVIDER:mock}
+      model: ${RAG_EMBEDDING_MODEL:text-embedding-3-small}
+      dimension: 1536
+    retrieval:
+      lexical-top-k: 20
+      vector-top-k: 20
+      rrf-constant-k: 60
+      lexical-weight: 1.0
+      vector-weight: 1.0
+      min-similarity-threshold: 0.40
+      min-fused-score-threshold: 0.15
+      min-rerank-score-threshold: 0.20
+      rerank-limit: 10
+      max-context-chars: 16000
+

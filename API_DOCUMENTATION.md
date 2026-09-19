@@ -1446,4 +1446,106 @@ Returns the complete list of 15 searchable entity types supported by LifeOS.
   }
   ```
 
+---
+
+## 13. Hybrid RAG Retrieval Engine (`/api/v1/search/retrieve`)
+
+### `POST /api/v1/search/retrieve`
+Retrieves the most relevant document chunks for answering user questions or powering downstream RAG workflows by combining PostgreSQL Full-Text Search (lexical) and pgvector HNSW search (semantic) via Reciprocal Rank Fusion (RRF), deterministic cross-signal reranking, and provenance generation.
+* **Headers**: `Authorization: Bearer <access_jwt>`, `Content-Type: application/json`
+* **Request Body**:
+  ```json
+  {
+    "query": "What is the deductible for inpatient surgery?",
+    "mode": "HYBRID",
+    "topK": 5,
+    "minRelevanceScore": 0.20,
+    "includeContent": true,
+    "filters": {
+      "category": "INSURANCE",
+      "documentType": "POLICY",
+      "dependentId": "ae0abd14-...",
+      "documentId": "7fc525aa-...",
+      "documentVersion": 1,
+      "startDate": "2026-01-01",
+      "endDate": "2026-12-31",
+      "section": "Inpatient",
+      "pageNumber": 2,
+      "mimeType": "application/pdf",
+      "includeHistorical": false
+    }
+  }
+  ```
+  * `query` (string, required): Question or search term. Max 1000 characters. Blank string returns `400 Bad Request`.
+  * `mode` (string, optional, default: `HYBRID`): `HYBRID`, `LEXICAL`, or `SEMANTIC`.
+  * `topK` (int, optional, default: 5, range: 1–50): Number of top chunks to return.
+  * `minRelevanceScore` (double, optional): Minimum normalized score threshold [0.0, 1.0].
+  * `includeContent` (boolean, optional, default: true): Whether to include the full chunk text in the response.
+  * `filters` (object, optional): Structured metadata filters.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Retrieval completed successfully",
+    "data": {
+      "query": "What is the deductible for inpatient surgery?",
+      "retrievalMode": "HYBRID",
+      "hasRelevantContext": true,
+      "noContextReason": null,
+      "results": [
+        {
+          "chunkId": "4a7b9812-...",
+          "documentId": "7fc525aa-...",
+          "documentVersion": 1,
+          "chunkIndex": 0,
+          "documentTitle": "Health Insurance Policy 2026",
+          "originalFilename": "Health_Insurance_Policy.pdf",
+          "category": "INSURANCE",
+          "documentType": "POLICY",
+          "dependentId": "ae0abd14-...",
+          "pageNumber": 1,
+          "sectionTitle": "Inpatient Hospitalization",
+          "tokenCount": 142,
+          "content": "[Document: Health Insurance Policy 2026 | Section: Inpatient Hospitalization | Page: 1] Comprehensive surgical coverage requires a $500 deductible...",
+          "snippet": "Comprehensive <b>surgical coverage</b> requires a <b>$500 deductible</b>...",
+          "relevanceScore": 0.895,
+          "matchSource": "HYBRID_BOTH",
+          "metadata": {}
+        }
+      ],
+      "citations": [
+        {
+          "documentId": "7fc525aa-...",
+          "documentVersion": 1,
+          "chunkId": "4a7b9812-...",
+          "chunkIndex": 0,
+          "documentTitle": "Health Insurance Policy 2026",
+          "pageNumber": 1,
+          "sectionTitle": "Inpatient Hospitalization",
+          "sourceCitation": "[Health Insurance Policy 2026, Page 1, Section: Inpatient Hospitalization (v1, Chunk #0)]",
+          "relevanceScore": 0.895,
+          "matchSource": "HYBRID_BOTH"
+        }
+      ],
+      "metadata": {
+        "totalCandidatesFound": 8,
+        "lexicalCandidatesCount": 5,
+        "vectorCandidatesCount": 3,
+        "executionTimeMs": 18,
+        "lexicalLatencyMs": 9,
+        "vectorLatencyMs": 6,
+        "fusionLatencyMs": 1,
+        "rerankLatencyMs": 1,
+        "degraded": false,
+        "degradationReason": null
+      }
+    }
+  }
+  ```
+* **Error Responses**:
+  * `400 Bad Request`: Query is blank or contains only whitespace.
+  * `401 Unauthorized`: Missing or invalid JWT.
+  * `404 Not Found`: Filter `dependentId` does not belong to the authenticated user.
+
+
 

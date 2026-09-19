@@ -102,7 +102,7 @@ public class DocumentIngestionService {
         List<DocumentChunk> chunks = documentChunker.chunk(
                 document.getId(),
                 document.getVersion(),
-                document.getOriginalFilename(),
+                (document.getTitle() != null && !document.getTitle().isBlank()) ? document.getTitle() : document.getOriginalFilename(),
                 pages
         );
 

@@ -176,11 +176,21 @@ com.lifeos
 │   ├── engine                  # SearchEngine port, PostgresLexicalSearchEngine (tsvector, GIN, websearch_to_tsquery)
 │   └── dto                     # SearchQuery, SearchResultItemDto, SearchCountSummaryDto, SearchSuggestionDto
 │
-└── ai                          # AI, RAG & Agentic Intelligence
-    ├── port                    # LLMProvider, EmbeddingProvider, VectorStorePort
-    ├── adapter                 # OpenAIProvider, OllamaProvider, PgVectorStoreAdapter
-    ├── rag                     # TextChunker, IngestionPipeline, HybridRetriever
-    ├── agent                   # AgentOrchestrator, LifeOSToolRegistry, ToolCallHandler
+├── rag                         # Document Intelligence & Hybrid Retrieval
+│   └── retrieval               # Phase 12 Hybrid RAG Retrieval Engine
+│       ├── controller          # RetrievalController (POST /api/v1/search/retrieve)
+│       ├── service             # RetrievalService, HybridRetrievalService
+│       ├── repository          # JdbcRetrievalRepository (pgvector HNSW & FTS GIN pushdown queries)
+│       ├── fusion              # CandidateFusionEngine (Reciprocal Rank Fusion k=60)
+│       ├── rerank              # Reranker, DeterministicCrossSignalReranker
+│       ├── citation            # CitationGenerator (Provenance footnotes)
+│       ├── processor           # QueryProcessor (Sanitization, length clamping, phrase/id extraction)
+│       ├── config              # RetrievalProperties
+│       └── dto                 # RetrievalRequest, RetrievalResponse, RetrievedChunkDto, RetrievalCitationDto
+│
+└── ai                          # AI & Agentic Intelligence (Phase 13)
+    ├── port                    # LLMProvider, AgentOrchestrator
+    ├── adapter                 # OpenAIProvider, OllamaProvider
     └── dto                     # ChatMessage, CitationDto, ToolExecutionResult
 ```
 

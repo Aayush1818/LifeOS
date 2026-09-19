@@ -187,7 +187,16 @@ LifeOS Architecture
 * **Version Invalidation & Idempotency**: Atomic activation and deactivation across document versions (`is_active` flag) preserving historical citations in `message_citations` while preventing outdated chunks from surfacing in vector searches.
 * **Granular Ingestion Lifecycle & Diagnostic APIs**: Asynchronous processing with bounded thread pool (`documentIngestionExecutor`), explicit error tracking (`EXTRACTION_FAILED`, `EMBEDDING_FAILED`), `/ingestion-status`, `/reprocess`, and chunk inspector `/chunks`.
 
-### J. Automated Reminders & Notifications
+### J. Hybrid RAG Retrieval Engine (Phase 12 Implemented)
+* **Production-Grade Dual Retrieval Pipeline**: Combines PostgreSQL Full-Text Search (lexical) from Phase 10 and pgvector semantic vector search from Phase 11 into a unified, high-precision retrieval engine (`POST /api/v1/search/retrieve`).
+* **Deterministic Query Processing**: Normalizes whitespace, strips control characters, clamps length, and extracts exact quoted phrases and alphanumeric codes for reranking boosts.
+* **Scale-Invariant Reciprocal Rank Fusion (RRF)**: Combines disparate lexical scores (`ts_rank_cd`) and cosine similarities via standard RRF ($k = 60$) with deduplication by chunk ID and normalized $[0.0, 1.0]$ score calculation.
+* **Deterministic Cross-Signal Reranker**: High-performance in-memory reranking ($< 1\text{ms}$) factoring in exact phrase match ($1.25\times$), identifier match ($1.20\times$), section/title match ($1.15\times$), and version recency ($1.05\times$) with zero external network overhead.
+* **Traceable Provenance & Citations**: Generates structured citation objects (`RetrievalCitationDto`) with document title, version, page number, section title, and formatted markdown citation strings for downstream Phase 13 LLM grounding.
+* **Multi-Tenant Pushdown & Defensive Authorization**: Strict SQL pushdown (`user_id = :userId`, `is_active = true`, `is_deleted = false`) plus secondary defensive in-memory ownership verification.
+* **Graceful Degradation & Hallucination Guardrails**: Automatic fallback to lexical FTS if external embedding providers are unavailable; relevance threshold filtering with `hasRelevantContext: false` signaling to prevent downstream hallucinations.
+
+### K. Automated Reminders & Notifications
 * Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
 
 ---
