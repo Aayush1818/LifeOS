@@ -1040,3 +1040,236 @@ Retrieves paginated travel documents belonging to the authenticated user.
     ]
   }
   ```
+
+---
+
+## 10. Product Warranties, Invoices & Asset Management (`/api/v1/assets`, `/api/v1/invoices`, `/api/v1/warranties`, `/api/v1/warranty-claims`, `/api/v1/asset-service-records`)
+
+### Asset Management (`/api/v1/assets`)
+
+#### `POST /api/v1/assets`
+Creates a physical or digital asset with deterministic acquisition cost, category, serial number, and optional dependent assignment.
+* **Request Body**:
+  ```json
+  {
+    "assetName": "MacBook Pro 16\"",
+    "category": "ELECTRONICS",
+    "brand": "Apple",
+    "model": "M3 Max / 64GB / 2TB",
+    "serialNumber": "C02G1234MD6R",
+    "purchaseDate": "2026-01-15",
+    "acquisitionCost": 3499.00,
+    "currency": "USD",
+    "returnDeadline": "2026-02-15",
+    "dependentId": "9d33b832-...",
+    "notes": "Workstation laptop"
+  }
+  ```
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "message": "Asset created successfully",
+    "data": {
+      "id": "52f6deb7-...",
+      "assetName": "MacBook Pro 16\"",
+      "category": "ELECTRONICS",
+      "brand": "Apple",
+      "model": "M3 Max / 64GB / 2TB",
+      "serialNumber": "C02G1234MD6R",
+      "status": "ACTIVE",
+      "purchaseDate": "2026-01-15",
+      "acquisitionCost": 3499.00,
+      "currency": "USD",
+      "returnDeadline": "2026-02-15",
+      "dependentId": "9d33b832-...",
+      "dependentName": "Alice Jr.",
+      "createdAt": "2026-09-19T20:45:00Z"
+    }
+  }
+  ```
+
+#### `GET /api/v1/assets`
+Retrieves paginated assets for the authenticated user, optionally filtered by `category`, `status`, `brand`, or `dependentId`.
+* **Query Parameters**: `category=ELECTRONICS`, `status=ACTIVE`, `page=0`, `size=20`
+
+#### `GET /api/v1/assets/{id}`
+Retrieves full asset details including warranties, linked invoice items, service records, and documents. Returns RFC 7807 `404 Not Found` on cross-tenant access.
+
+#### `PUT /api/v1/assets/{id}`
+Updates asset details (name, category, brand, model, serial number, return deadline, notes).
+
+#### `POST /api/v1/assets/{id}/status`
+Transitions asset status across the 9-state lifecycle (`ACTIVE`, `UNDER_REPAIR`, `RETIRED`, `SOLD`, `DISPOSED`, `LOST`, `STOLEN`, `GIFTED`, `RETURNED`) and writes an immutable audit entry in `asset_status_history`. Returns `409 Conflict` on invalid transitions.
+* **Request Body**:
+  ```json
+  {
+    "status": "UNDER_REPAIR",
+    "reason": "Sent for AppleCare display replacement"
+  }
+  ```
+
+#### `GET /api/v1/assets/{id}/history`
+Retrieves the complete immutable status history audit log for the asset.
+
+#### `GET /api/v1/assets/analytics/summary`
+Calculates portfolio acquisition cost aggregated strictly by currency with zero speculative FX conversion (`totalsByCurrency`, `consolidatedTotal = null` if mixed currencies).
+
+#### `DELETE /api/v1/assets/{id}`
+Soft-deletes the asset and cleans up active reminders.
+
+---
+
+### Invoices & Line Items (`/api/v1/invoices`)
+
+#### `POST /api/v1/invoices`
+Creates a first-class invoice with line items, tax, discount, shipping, payment status, and optional links to assets.
+* **Request Body**:
+  ```json
+  {
+    "invoiceNumber": "INV-2026-APP-001",
+    "supplier": "Apple Store Fifth Avenue",
+    "invoiceDate": "2026-01-15",
+    "dueDate": "2026-01-15",
+    "currency": "USD",
+    "subtotal": 3698.00,
+    "taxAmount": 328.20,
+    "shippingFee": 0.00,
+    "discountAmount": 0.00,
+    "totalAmount": 4026.20,
+    "paymentStatus": "PAID",
+    "paymentDate": "2026-01-15",
+    "paymentMethod": "CREDIT_CARD",
+    "returnDeadline": "2026-02-15",
+    "items": [
+      {
+        "description": "MacBook Pro 16\" M3 Max",
+        "quantity": 1,
+        "unitPrice": 3499.00,
+        "totalPrice": 3499.00,
+        "assetId": "52f6deb7-..."
+      },
+      {
+        "description": "Apple 140W USB-C Power Adapter",
+        "quantity": 2,
+        "unitPrice": 99.50,
+        "totalPrice": 199.00
+      }
+    ]
+  }
+  ```
+
+#### `GET /api/v1/invoices`
+Retrieves paginated invoices for the user, with optional filters for `paymentStatus`, `supplier`, `startDate`, and `endDate`.
+
+#### `GET /api/v1/invoices/{id}`
+Retrieves invoice details including all line items and linked finance transaction ID if converted.
+
+#### `POST /api/v1/invoices/{id}/convert-to-transaction`
+Atomically creates a finance expense transaction from the invoice and binds bidirectional foreign keys (`invoices.transaction_id UNIQUE`). Idempotent; returns `409 Conflict` if already linked.
+
+#### `POST /api/v1/invoices/{id}/link-transaction/{transactionId}`
+Explicitly links an existing finance transaction to the invoice. Enforces same-user ownership (cross-tenant returns `404 Not Found`).
+
+---
+
+### Warranties & Expirations (`/api/v1/warranties`)
+
+#### `POST /api/v1/warranties`
+Creates a warranty record (`MANUFACTURER`, `EXTENDED`, `STORE`, `CREDIT_CARD_PROTECTION`, `LIFETIME`) on an asset. Automatically schedules an expiry reminder at 09:00:00 in the user's timezone (UTC fallback). `LIFETIME` warranties strictly have `expiry_date = null` and never schedule reminders.
+* **Request Body**:
+  ```json
+  {
+    "assetId": "52f6deb7-...",
+    "warrantyType": "EXTENDED",
+    "providerName": "AppleCare+ for Mac",
+    "policyNumber": "AC-MAC-98765",
+    "coverageDetails": "Accidental damage protection and battery replacement",
+    "startDate": "2026-01-15",
+    "expiryDate": "2029-01-15",
+    "supportContact": "support@apple.com",
+    "reminderOffsetDays": 30
+  }
+  ```
+
+#### `GET /api/v1/warranties`
+Retrieves paginated warranties with filters for `assetId`, `status`, and `warrantyType`.
+
+#### `GET /api/v1/warranties/expiring`
+Retrieves active warranties expiring within a day window (default 30 days). Excludes `LIFETIME` and `VOID`.
+
+#### `POST /api/v1/warranties/{id}/void`
+Voids a warranty policy and dismisses the linked expiry reminder. Historical claims remain 100% queryable.
+
+---
+
+### Warranty Claims (`/api/v1/warranty-claims`)
+
+#### `POST /api/v1/warranty-claims`
+Files a warranty claim against a warranty policy (`REPAIR`, `REPLACEMENT`, `REFUND`, `REIMBURSEMENT`).
+* **Request Body**:
+  ```json
+  {
+    "warrantyId": "b9d5ec4b-...",
+    "claimType": "REPAIR",
+    "incidentDate": "2026-06-10",
+    "description": "Screen cracked during transit",
+    "claimReferenceNumber": "CLM-APP-0091",
+    "repairServiceProvider": "Apple Fifth Avenue Genius Bar"
+  }
+  ```
+
+#### `POST /api/v1/warranty-claims/{id}/status`
+Transitions claim lifecycle (`FILED` -> `UNDER_REVIEW` -> `APPROVED` / `REJECTED` -> `RESOLVED` / `CANCELLED`) with covered vs out-of-pocket costs.
+* **Request Body**:
+  ```json
+  {
+    "status": "RESOLVED",
+    "resolutionNotes": "Screen replaced under AppleCare accidental damage tier",
+    "coveredAmount": 650.00,
+    "outOfPocketAmount": 99.00
+  }
+  ```
+
+#### `GET /api/v1/warranty-claims/asset/{assetId}`
+Retrieves all historical warranty claims for an asset, guaranteed to be queryable even after the warranty expires or is voided.
+
+---
+
+### Asset Service & Maintenance Records (`/api/v1/asset-service-records`)
+
+#### `POST /api/v1/asset-service-records`
+Logs a routine maintenance, repair, upgrade, inspection, or calibration service event.
+* **Request Body**:
+  ```json
+  {
+    "assetId": "52f6deb7-...",
+    "serviceType": "REPAIR",
+    "serviceDate": "2026-06-12",
+    "serviceProvider": "Apple Authorized Service Provider",
+    "cost": 99.00,
+    "currency": "USD",
+    "description": "Display panel replacement",
+    "warrantyClaimId": "35285f35-..."
+  }
+  ```
+
+#### `GET /api/v1/asset-service-records/asset/{assetId}`
+Retrieves complete maintenance and repair history for an asset.
+
+---
+
+### Asset Document Integration (`/api/v1/assets/{id}/documents`, `/api/v1/invoices/{id}/documents`)
+
+#### `POST /api/v1/assets/{assetId}/documents/{documentId}`
+Links a Phase 4 document (receipt, invoice, warranty certificate, user manual) to an asset via `document_entity_links`. Validates dual tenant ownership.
+
+#### `DELETE /api/v1/assets/{assetId}/documents/{documentId}`
+Unlinks a document from an asset.
+
+#### `POST /api/v1/invoices/{invoiceId}/documents/{documentId}`
+Links an invoice document (PDF, scanned receipt) to an invoice entity.
+
+#### `DELETE /api/v1/invoices/{invoiceId}/documents/{documentId}`
+Unlinks a document from an invoice.
+

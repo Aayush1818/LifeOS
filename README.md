@@ -162,8 +162,18 @@ LifeOS Architecture
 * **Family & Traveler Coordination**: Multi-traveler registration supporting primary user and verified family dependents (`TripTravelerEntity`).
 * **Upcoming Trips Scanner**: Rapid querying of upcoming itineraries within configurable day windows (`/api/v1/travel/trips/upcoming?windowDays=30`).
 
-### G. Automated Reminders & Notifications
-* Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, and warranty expirations.
+### G. Product Warranties, Invoices & Asset Management (Phase 9 Implemented)
+* **First-Class Asset Inventory**: Full lifecycle management across 9 explicit domain statuses (`ACTIVE`, `UNDER_REPAIR`, `RETIRED`, `SOLD`, `DISPOSED`, `LOST`, `STOLEN`, `GIFTED`, `RETURNED`) with immutable audit logging (`asset_status_history`).
+* **First-Class Invoices & Line Items**: Invoices decoupled from documents with structured line items (`InvoiceItemEntity`), tax, discounts, shipping fees, return deadlines, and optional links to assets.
+* **Deterministic Multi-Currency Valuation**: Portfolio acquisition cost grouped strictly by currency (`totalsByCurrency`) with `consolidatedTotal = null` for mixed-currency collections; zero speculative conversion or arbitrary FX rates.
+* **Zero Double-Counting Finance Integration**: 1-to-0..1 bidirectional mapping (`invoices.transaction_id UNIQUE`) preventing duplicate accounting. Invoices can be atomically converted to finance expense transactions or linked to existing transactions with strict tenant validation.
+* **Multi-Tier Warranty Lifecycle**: Support for `MANUFACTURER`, `EXTENDED`, `STORE`, `CREDIT_CARD_PROTECTION`, and `LIFETIME` warranties. Automatic expiry reminder synchronization at 09:00 in user's timezone; `LIFETIME` warranties never expire and never schedule reminders.
+* **First-Class Warranty Claims**: State machine (`FILED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `RESOLVED`, `CANCELLED`) tracking covered vs out-of-pocket costs and repair providers. Historical claims remain 100% queryable even after policy expiration or voiding.
+* **Service & Maintenance Records**: Complete maintenance, repair, and upgrade logs (`asset_service_records`) linked to assets, invoices, and claims.
+* **Zero Duplication Subsystem Reuse**: Full reuse of Phase 4 document storage via `document_entity_links` for receipts, warranty certificates, and user manuals with dual-ownership verification.
+
+### H. Automated Reminders & Notifications
+* Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
 
 ---
 

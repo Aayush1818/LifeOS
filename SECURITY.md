@@ -180,7 +180,31 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 9. Anti-Hallucination & AI Privacy Boundaries
+## 9. Product Warranties, Invoices & Asset Management Security & Integrity
+
+1. **Multi-Tenant Scoping & Strict Resource Isolation**:
+   * All assets, invoices, invoice line items, warranties, warranty claims, and service records are scoped to `userId = SecurityUtils.getCurrentUserId()`.
+   * Cross-tenant access attempts return RFC 7807 `404 Not Found` rather than `403 Forbidden` to prevent resource enumeration.
+   * Dependent assignment to assets validates that `dependentId` belongs to the authenticated user; unauthorized dependents return RFC 7807 `404 Not Found`.
+2. **Dual-Ownership Verification for Document Links**:
+   * Attaching documents (receipts, warranty certificates, user manuals) to assets or invoices via `document_entity_links` strictly enforces dual tenant ownership: both the target entity and the referenced document must belong to the caller.
+3. **Double-Accounting Prevention & Finance Integration Boundary**:
+   * Creating an invoice never automatically records a financial expense.
+   * Converting an invoice to a finance transaction or explicitly linking to an existing transaction is atomic and enforces same-user ownership.
+   * Duplicate linking is prevented via unique constraints (`invoices.transaction_id UNIQUE`) and returns RFC 7807 `409 Conflict`.
+4. **Deterministic Multi-Currency Valuation & Zero Speculative FX**:
+   * Asset acquisition costs and invoice line items use PostgreSQL `NUMERIC(14,2)` with Java `BigDecimal`.
+   * When assets are denominated in multiple currencies, portfolio totals are grouped strictly by currency (`totalsByCurrency`) with `consolidatedTotal = null`. No speculative conversion or arbitrary FX rates are applied.
+5. **Warranty Lifecycle, Expiration Reminders & Claims Retention**:
+   * Expiry reminders schedule at 09:00:00 in the user's local timezone (UTC fallback).
+   * `LIFETIME` warranties strictly have `expiry_date = null` and never schedule reminders.
+   * Voiding a warranty dismisses the linked reminder, while preserving all historical claims and service records in perpetuity for auditability.
+6. **Immutable Asset Status Audit History**:
+   * Asset status transitions write immutable audit logs to `asset_status_history` with transition timestamp, user ID, previous status, new status, and optional reason.
+
+---
+
+## 10. Anti-Hallucination & AI Privacy Boundaries
 
 1. **Context Window Isolation**: AI conversation sessions strictly inject retrieved chunks tagged with the authenticated user's ID. No cross-tenant document chunks can enter the LLM prompt context.
 2. **No Data Leakage in AI Logs**: Logs sanitize user PII, document binary excerpts, and authentication headers.
@@ -188,8 +212,9 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 10. Secrets Management
+## 11. Secrets Management
 
 * **No Hard-Coded Credentials**: API keys, database passwords, and JWT secrets are injected via system environment variables or `.env` files (ignored in `.gitignore`).
 * **Environment Template**: A fully documented `.env.example` template is provided with production-recommended defaults.
+
 

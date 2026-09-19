@@ -4,6 +4,42 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0-alpha] - 2026-09-19
+### Added
+* **Phase 9: Product Warranties, Invoices & Asset Management**
+  * Flyway migration `V7__assets_warranties_and_invoices.sql`:
+    * Created `invoices` table with supplier, invoice number, subtotal, tax, discount, shipping, total, payment status, return deadline, and optional unique finance `transaction_id` FK.
+    * Created `assets` table with category, brand, model, serial number, purchase date, acquisition cost, currency, return deadline, status, and dependent FK.
+    * Created `invoice_items` table with line item descriptions, unit price, quantity, total price, and optional asset FK.
+    * Created `warranties` table supporting `MANUFACTURER`, `EXTENDED`, `STORE`, `CREDIT_CARD_PROTECTION`, and `LIFETIME` warranties, expiry dates, provider, policy numbers, and reminder FK.
+    * Created `warranty_claims` table with claims state machine (`FILED`, `UNDER_REVIEW`, `APPROVED`, `REJECTED`, `RESOLVED`, `CANCELLED`), covered vs out-of-pocket costs, and resolution notes.
+    * Created `asset_service_records` table logging maintenance, repairs, inspections, and upgrades linked to assets, invoices, and claims.
+    * Created `asset_status_history` immutable audit table tracking lifecycle transitions.
+    * Created composite performance indexes on user IDs, asset IDs, invoice IDs, and warranty IDs.
+  * Deterministic Multi-Currency Valuation:
+    * 100% `BigDecimal` calculations with PostgreSQL `NUMERIC(14,2)` and `RoundingMode.HALF_UP` (zero float/double drift).
+    * Portfolio acquisition cost aggregated strictly by currency (`totalsByCurrency`) with `consolidatedTotal = null` for mixed-currency holdings; zero speculative conversion.
+  * Finance Integration & Duplicate Accounting Prevention:
+    * 1-to-0..1 bidirectional mapping (`invoices.transaction_id UNIQUE`).
+    * Creating an invoice never automatically spawns a transaction.
+    * Idempotent conversion of invoices to finance expense transactions, and explicit transaction linking with strict same-user ownership validation (`404 Not Found` on cross-tenant, `409 Conflict` on duplicate).
+  * Multi-Tier Warranty Lifecycle & Reminders:
+    * Expiry reminders schedule at 09:00:00 in user's local timezone (UTC fallback).
+    * `LIFETIME` warranties strictly have `expiry_date = null` and never schedule reminders.
+    * Voiding a warranty dismisses the linked reminder, while preserving all historical claims and service records in perpetuity.
+  * First-Class Warranty Claims:
+    * State machine tracking incident dates, repair service providers, covered costs, and out-of-pocket expenses.
+    * Historical claims remain 100% queryable after warranty expiration or voiding.
+  * Subsystem Reuse (Zero Duplication):
+    * Reused Phase 4 document storage via `document_entity_links` for receipts, warranty certificates, and user manuals with dual-ownership verification.
+    * Reused Phase 3 notifications/reminders for warranty expiry and return deadlines.
+    * Reused Phase 2 dependents for asset assignment with tenant validation.
+  * Verification:
+    * 15 automated integration tests in `AssetControllerTest.java` bringing full test suite to 103/103 passed tests (0 failures, 0 errors).
+    * 19 logical verification groups (23 discrete PASS assertions) verified live on Tomcat port 8080 against PostgreSQL 18.
+
+---
+
 ## [0.8.0-alpha] - 2026-09-19
 ### Added
 * **Phase 8: Travel & Trip Itinerary Management**

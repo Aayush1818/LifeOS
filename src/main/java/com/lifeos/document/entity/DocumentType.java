@@ -21,5 +21,7 @@ public enum DocumentType {
     VISA,
     CONTRACT,
     TAX_RETURN,
+    WARRANTY_CERTIFICATE,
+    USER_MANUAL,
     OTHER
 }

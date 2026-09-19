@@ -153,9 +153,17 @@ com.lifeos
 │
 ├── travel                      # Trips, Bookings & Itineraries
 │   ├── controller              # TravelController (/api/v1/travel)
-│   ├── service                 # TripService, TripBudgetService
-│   ├── repository              # TripRepository, TripExpenseRepository
-│   └── entity                  # TripEntity, TripExpenseEntity
+│   ├── service                 # TripService, TripBudgetService, ItineraryService, TravelerService, TravelDocumentService
+│   ├── repository              # TripRepository, ItineraryItemRepository, TravelerRepository
+│   ├── dto                     # Trip, Itinerary, Traveler request & response DTOs, MultiCurrencySpendSummary
+│   └── entity                  # TripEntity, ItineraryItemEntity, TravelerEntity
+│
+├── asset                       # Product Warranties, Invoices & Asset Management
+│   ├── controller              # AssetController, InvoiceController, WarrantyController, WarrantyClaimController, AssetServiceRecordController, AssetDocumentController
+│   ├── service                 # AssetService, InvoiceService, WarrantyService, WarrantyClaimService, AssetServiceRecordService, AssetDocumentService
+│   ├── repository              # AssetRepository, InvoiceRepository, InvoiceItemRepository, WarrantyRepository, WarrantyClaimRepository, AssetServiceRecordRepository, AssetStatusHistoryRepository
+│   ├── dto                     # Asset, Invoice, Warranty, Claim, Service Record DTOs & AcquisitionCostSummary
+│   └── entity                  # AssetEntity, InvoiceEntity, InvoiceItemEntity, WarrantyEntity, WarrantyClaimEntity, AssetServiceRecordEntity, AssetStatusHistoryEntity
 │
 ├── reminder                    # Background Scheduling & Due Date Scanners
 │   ├── service                 # ReminderSchedulerService, NotificationDispatcher
