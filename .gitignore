@@ -69,5 +69,6 @@ desktop.ini
 
 # Application File Uploads & Local DBs
 uploads/
+storage/
 data/
 *.h2.db

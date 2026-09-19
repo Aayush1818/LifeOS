@@ -101,11 +101,14 @@ com.lifeos
 │   ├── service                 # DependentService
 │   └── entity                  # DependentEntity, AccessGrantEntity
 │
-├── document                    # File Management & Text Extraction
+├── document                    # File Management, Ingestion & Text Extraction
 │   ├── controller              # DocumentController (/api/v1/documents)
-│   ├── service                 # DocumentStorageService, DocumentExtractionService
+│   ├── service                 # DocumentService (Upload, Versioning, Two-Stage Deletion)
+│   ├── storage                 # DocumentStorageService, LocalStorageService, StorageProperties
+│   ├── extractor               # DocumentTextExtractor, TikaDocumentTextExtractor, ExtractionResult
 │   ├── repository              # DocumentRepository
-│   └── entity                  # DocumentEntity, DocumentType
+│   ├── dto                     # UploadDocumentRequest, DocumentResponse, DocumentDetailResponse
+│   └── entity                  # DocumentEntity, DocumentCategory, DocumentType, IngestionStatus
 │
 ├── finance                     # Income, Expenses & Recurring Transactions
 │   ├── controller              # FinanceController (/api/v1/finance)

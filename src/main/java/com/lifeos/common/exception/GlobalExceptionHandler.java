@@ -77,6 +77,19 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleMessageNotReadable(org.springframework.http.converter.HttpMessageNotReadableException ex, HttpServletRequest request) {
+        log.warn("Malformed JSON or unreadable request body at [{}]: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse error = ErrorResponse.builder()
+                .title("Malformed Request")
+                .status(HttpStatus.BAD_REQUEST.value())
+                .detail("Request payload is invalid or contains unrecognizable fields")
+                .instance(request.getRequestURI())
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
     @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorResponse> handleMediaTypeNotSupported(org.springframework.web.HttpMediaTypeNotSupportedException ex, HttpServletRequest request) {
         log.warn("Unsupported media type at [{}]: {}", request.getRequestURI(), ex.getMessage());
@@ -88,6 +101,32 @@ public class GlobalExceptionHandler {
                 .timestamp(OffsetDateTime.now())
                 .build();
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).body(error);
+    }
+
+    @ExceptionHandler(InvalidDocumentException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidDocument(InvalidDocumentException ex, HttpServletRequest request) {
+        log.warn("Invalid document at [{}]: {}", request.getRequestURI(), ex.getMessage());
+        ErrorResponse error = ErrorResponse.builder()
+                .title("Invalid Document")
+                .status(HttpStatus.BAD_REQUEST.value())
+                .detail(ex.getMessage())
+                .instance(request.getRequestURI())
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+    }
+
+    @ExceptionHandler(FileStorageException.class)
+    public ResponseEntity<ErrorResponse> handleFileStorageException(FileStorageException ex, HttpServletRequest request) {
+        log.error("File storage failure at [{}]: {}", request.getRequestURI(), ex.getMessage(), ex);
+        ErrorResponse error = ErrorResponse.builder()
+                .title("Storage Error")
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .detail("A storage system error occurred while processing the document.")
+                .instance(request.getRequestURI())
+                .timestamp(OffsetDateTime.now())
+                .build();
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
     @ExceptionHandler(Exception.class)

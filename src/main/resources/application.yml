@@ -56,3 +56,16 @@ security:
     secret: ${JWT_SECRET:404E635266556A586E3272357538782F413F4428472B4B6250645367566B5970}
     access-token-expiration-ms: ${JWT_EXPIRATION_MS:900000}
     refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:604800000}
+
+storage:
+  local:
+    upload-dir: ${STORAGE_UPLOAD_DIR:./storage/uploads}
+  max-file-size-bytes: ${STORAGE_MAX_FILE_SIZE_BYTES:26214400} # 25 MB
+  allowed-mime-types:
+    - application/pdf
+    - application/vnd.openxmlformats-officedocument.wordprocessingml.document
+    - application/msword
+    - text/plain
+    - image/jpeg
+    - image/png
+    - image/webp

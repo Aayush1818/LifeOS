@@ -4,6 +4,29 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0-alpha] - 2026-09-19
+### Added
+* **Phase 4: Document Management & File Storage**
+  * Integrated Apache Tika `2.9.2` (`tika-core`, `tika-parsers-standard-package`) for magic-byte content inspection and text/metadata extraction.
+  * Applied Flyway migration `V2__document_enhancements.sql` adding `version`, `extracted_text`, JSONB `metadata`, `extraction_error`, and composite tenant indexes.
+  * Implemented pluggable storage abstraction behind `DocumentStorageService` interface, with initial implementation `LocalStorageService`:
+    * Storage path traversal protection with directory normalization and path confinement checks.
+    * Storage files stored in user-isolated directories (`{userId}/{randomUuid}.{ext}`) preventing collision and path leakage.
+    * Compensation cleanup: if database persistence fails, physical file is immediately purged (`deleteQuietly`).
+    * Two-stage deletion: database record is immediately marked soft-deleted and status set to `DELETED`, followed by fault-tolerant disk cleanup.
+  * Strict server-side MIME type allowlist (`application/pdf`, DOCX, DOC, `text/plain`, JPEG, PNG, WebP) enforced via content byte inspection (Tika Detector), rejecting spoofed extensions (e.g. PE executables renamed to `.pdf`).
+  * Enforced configurable file size limits (`storage.max-file-size-bytes`: 25 MB default) before file ingestion.
+  * Resilient decoupled extraction pipeline (`TikaDocumentTextExtractor`): graceful handling of corrupt files via `EXTRACTION_FAILED` status without failing storage or download capabilities.
+  * Document versioning: `POST /api/v1/documents/{id}/versions` stores replacement binaries and increments version integer while maintaining document history metadata.
+  * Multi-tenant resource authorization:
+    * All queries, updates, downloads, versioning, and deletions strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+    * Cross-tenant access returns RFC 7807 `404 Not Found` to prevent resource ID harvesting.
+    * Zero internal filesystem path leakage in API response DTOs (`DocumentResponse`, `DocumentDetailResponse`).
+  * Automated testing: 10 new comprehensive integration tests in `DocumentControllerTest`, bringing total passed automated tests to 30.
+  * 14-step live HTTP verification passed over Tomcat 8080 against PostgreSQL 18.
+
+---
+
 ## [0.3.0-alpha] - 2026-09-19
 ### Added
 * **Phase 3: Security, Authentication, Users & Dependent Management**

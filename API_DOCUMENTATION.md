@@ -227,38 +227,115 @@
 
 ---
 
-## 6. Document Management (`/api/v1/documents`)
+## 6. Document Management & File Storage (`/api/v1/documents`)
+
+*All document endpoints strictly enforce user ownership. Cross-tenant access returns RFC 7807 `404 Not Found`. Extracted text and metadata are provided with zero internal filesystem path exposure.*
 
 ### `POST /api/v1/documents/upload`
+* Uploads document binary and metadata, performs Tika magic-byte MIME detection, enforces file limits, extracts text/metadata, and safely stores the file.
 * **Content-Type**: `multipart/form-data`
+* **Headers**: `Authorization: Bearer <access_jwt>`
 * **Parts**:
-  * `file`: Binary file stream (PDF, DOCX, TXT - max 25MB)
-  * `metadata`: JSON payload:
+  * `file`: Binary file (PDF, DOCX, DOC, TXT, JPEG, PNG, WebP — max 25MB).
+  * `metadata`: JSON object (`application/json`):
     ```json
     {
       "title": "Health Insurance Policy 2026",
       "category": "INSURANCE",
       "documentType": "POLICY",
-      "dependentId": "nullable-uuid",
+      "dependentId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
       "issueDate": "2026-01-01",
-      "expiryDate": "2026-12-31",
-      "tags": ["medical", "star-health"]
+      "expiryDate": "2027-01-01",
+      "tags": ["medical", "star-health", "policy"]
     }
     ```
-* **Response `202 Accepted`**:
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "message": "Document uploaded successfully",
+    "data": {
+      "id": "cb50eac7-547d-4dd8-b3e0-31c0fc4b39b9",
+      "title": "Health Insurance Policy 2026",
+      "originalFilename": "health_policy.txt",
+      "mimeType": "text/plain",
+      "fileSize": 142850,
+      "category": "INSURANCE",
+      "documentType": "POLICY",
+      "dependentId": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "issueDate": "2026-01-01",
+      "expiryDate": "2027-01-01",
+      "tags": ["medical", "star-health", "policy"],
+      "checksumSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "ingestionStatus": "PROCESSED",
+      "version": 1,
+      "createdAt": "2026-09-19T14:32:30.000Z",
+      "updatedAt": "2026-09-19T14:32:30.000Z"
+    }
+  }
+  ```
+
+### `POST /api/v1/documents/{id}/versions`
+* Uploads a replacement binary version for an existing document, auto-incrementing version integer.
+* **Content-Type**: `multipart/form-data`
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Parts**:
+  * `file`: New binary file revision.
+* **Response `200 OK`**: Updated `DocumentResponse` with `version: 2`.
+
+### `GET /api/v1/documents`
+* Lists paginated documents belonging to the authenticated user, with optional filters.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Query Params**:
+  * `category` (optional, enum: `PERSONAL`, `FINANCIAL`, `LEGAL`, `MEDICAL`, `TRAVEL`, `INSURANCE`, `TAX`, `OTHER`)
+  * `dependentId` (optional, UUID)
+  * `page` (optional, default: 0)
+  * `size` (optional, default: 20)
+  * `sort` (optional, default: `createdAt,desc`)
+* **Response `200 OK`**: Spring Data `Page<DocumentResponse>`.
+
+### `GET /api/v1/documents/{id}`
+* Retrieves document metadata including extracted text and Tika technical metadata.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Security**: Returns `404 Not Found` if document does not belong to requesting user.
+* **Response `200 OK`**:
   ```json
   {
     "success": true,
     "data": {
-      "documentId": "4b92b6a2-...",
-      "ingestionStatus": "PROCESSING",
-      "fileSize": 1428500
+      "id": "cb50eac7-547d-4dd8-b3e0-31c0fc4b39b9",
+      "title": "Health Insurance Policy 2026",
+      "extractedText": "Health Insurance Policy #987654321...",
+      "metadata": {
+        "Content-Type": "text/plain",
+        "Page-Count": "1"
+      },
+      "version": 1,
+      "ingestionStatus": "PROCESSED"
     }
   }
   ```
 
 ### `GET /api/v1/documents/{id}/download`
-* **Response `200 OK`**: Binary octet stream with proper `Content-Disposition` and MIME headers.
+* Streams the stored file binary.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Security**: Returns `404 Not Found` if document does not belong to requesting user.
+* **Response `200 OK`**: Binary stream with headers:
+  * `Content-Type: <mimeType>`
+  * `Content-Length: <fileSize>`
+  * `Content-Disposition: attachment; filename="<originalFilename>"`
+
+### `DELETE /api/v1/documents/{id}`
+* Soft-deletes the database record (`is_deleted = true`, status = `DELETED`) and purges physical file.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Security**: Returns `404 Not Found` if document does not belong to requesting user.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Document deleted successfully"
+  }
+  ```
 
 ---
 

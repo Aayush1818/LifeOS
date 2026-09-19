@@ -54,6 +54,7 @@ erDiagram
     DOCUMENTS {
         uuid id PK
         uuid user_id FK
+        uuid dependent_id FK
         varchar title
         varchar original_filename
         varchar storage_path
@@ -66,6 +67,10 @@ erDiagram
         jsonb tags
         varchar checksum_sha256
         varchar ingestion_status
+        int version
+        text extracted_text
+        jsonb metadata
+        text extraction_error
         timestamp created_at
     }
 
@@ -571,3 +576,23 @@ LifeOS specifies **HNSW (Hierarchical Navigable Small World)** with cosine dista
 
 ### Sparse Lexical GIN Indexing
 PostgreSQL generated column `tsv_content` converts English text chunks into indexed lexemes with stop-word elimination and stemming. Combining this with dense HNSW provides state-of-the-art hybrid search capabilities directly within PostgreSQL.
+
+---
+
+## 4. Flyway Migration Version History
+
+### `V1__init_schema.sql` (Phase 2)
+* Core DDL initialization creating 18 domain tables.
+* Initial pgvector `vector(1536)` definition, HNSW index `idx_chunks_hnsw`, and GIN index `idx_chunks_tsv`.
+* Foundational multi-tenant security architecture with foreign keys, cascade constraints, and tenant indexes.
+
+### `V2__document_enhancements.sql` (Phase 4)
+* Added document versioning column: `version INT NOT NULL DEFAULT 1`.
+* Added full-text extraction column: `extracted_text TEXT`.
+* Added JSONB extraction metadata column: `metadata JSONB NOT NULL DEFAULT '{}'::jsonb`.
+* Added extraction diagnostics column: `extraction_error TEXT`.
+* Added composite multi-tenant query indexes:
+  * `idx_documents_user_category` on `documents(user_id, category)` where `is_deleted = false`.
+  * `idx_documents_user_dependent` on `documents(user_id, dependent_id)` where `is_deleted = false`.
+  * `idx_documents_user_status` on `documents(user_id, ingestion_status)` where `is_deleted = false`.
+

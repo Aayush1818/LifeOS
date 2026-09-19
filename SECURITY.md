@@ -81,10 +81,21 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ## 4. File Ingestion & Storage Security
 
-1. **MIME Type Spoofing Defense**: File extensions (`.pdf`, `.docx`) can be forged. LifeOS uses **Apache Tika** to read file magic bytes from the binary stream before processing.
-2. **Path Traversal Protection**: Uploaded files are stripped of directory traversal characters (`../`, `..\\`) and renamed to a random `UUID.ext` on disk.
-3. **Storage Location**: Files are written to a dedicated directory completely outside the web server root context, preventing direct HTTP execution.
-4. **File Size Caps**: Enforced at both the servlet gateway and Spring Boot multipart layer (maximum 25MB per file).
+1. **MIME Type Spoofing Defense**: Client-supplied `Content-Type` headers and file extensions are fundamentally untrusted. LifeOS employs **Apache Tika 2.9.2** magic-byte stream inspection on raw input streams before any ingestion logic.
+2. **Server-Side MIME Allowlist**: Restricted strictly to supported business formats (`application/pdf`, DOCX, DOC, `text/plain`, JPEG, PNG, WebP) configured via `StorageProperties`. Unrecognized or spoofed binaries (e.g. DOS/PE `.exe` renamed to `.pdf`) are rejected with RFC 7807 `400 Bad Request`.
+3. **Path Traversal Protection & Directory Confinement**:
+   * Storage paths are structured as `{storageDir}/{userId}/{randomUuid}.{ext}`.
+   * Path resolution uses `rootLocation.resolve(...).normalize()` with strict `.startsWith(userDir)` confinement checks.
+   * Path traversal filenames (e.g. `../../../../etc/passwd.txt`) are sanitized using `Paths.get(filename).getFileName()`, preventing local file overwrite or arbitrary write exploits.
+4. **Compensation Cleanup & Consistency**:
+   * If database persistence fails after storing physical bytes, `LocalStorageService.deleteQuietly` executes immediately in the exception handler to prevent orphaned disk files.
+   * Deletion uses a two-stage process: database soft delete (`is_deleted = true`, status = `DELETED`) commits immediately, followed by fault-tolerant physical file purge.
+5. **Zero Internal Filesystem Path Leakage**:
+   * Public DTOs (`DocumentResponse`, `DocumentDetailResponse`) never expose internal server disk paths (`storagePath`).
+   * Download endpoints (`GET /api/v1/documents/{id}/download`) stream bytes directly via Spring `Resource` abstraction with user ownership verification.
+6. **Cross-Tenant Access Protection**:
+   * Attempted access, download, new version upload, or deletion of a document belonging to another user returns RFC 7807 `404 Not Found` rather than `403 Forbidden`, preventing document UUID enumeration.
+7. **Configurable File Size Caps**: Enforced at Spring Boot multipart layer (`spring.servlet.multipart.max-file-size: 25MB`) and validated before processing in `DocumentService`.
 
 ---
 
