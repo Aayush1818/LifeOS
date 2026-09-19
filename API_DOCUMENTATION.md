@@ -1273,3 +1273,118 @@ Links an invoice document (PDF, scanned receipt) to an invoice entity.
 #### `DELETE /api/v1/invoices/{invoiceId}/documents/{documentId}`
 Unlinks a document from an invoice.
 
+---
+
+## 12. Unified Search & Advanced Query Platform (`/api/v1/search`)
+
+### `GET /api/v1/search`
+Executes a unified, cross-domain query across all LifeOS entities (Assets, Invoices, Warranties, Warranty Claims, Service Records, Loans, Insurance Policies, Healthcare Appointments, Trips, Itinerary Items, Transactions, Budgets, Documents, Dependents, and Reminders).
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Query Parameters**:
+  * `q` (string, optional): Keyword query string. Supports PostgreSQL `websearch` syntax (words, phrases in quotes, `-term` negation, `OR`).
+  * `entities` (comma-separated, optional): Filter by entity types (e.g., `entities=ASSET,INVOICE`). Default is all entities.
+  * `startDate` (ISO date `YYYY-MM-DD`, optional): Lower bound event date.
+  * `endDate` (ISO date `YYYY-MM-DD`, optional): Upper bound event date.
+  * `minAmount` (number, optional): Minimum monetary amount.
+  * `maxAmount` (number, optional): Maximum monetary amount.
+  * `currency` (string, optional): 3-letter currency code (e.g. `USD`, `EUR`).
+  * `category` (string, optional): Category or type descriptor.
+  * `status` (string, optional): Entity lifecycle status.
+  * `dependentId` (UUID, optional): Filter by dependent ownership. Cross-tenant returns `404 Not Found`.
+  * `page` (int, default: 0): Zero-indexed page number.
+  * `size` (int, default: 20): Page size.
+  * `sortBy` (string, default: `RELEVANCE`): `RELEVANCE`, `DATE_DESC`, `DATE_ASC`, `AMOUNT_DESC`, `AMOUNT_ASC`, `TITLE_ASC`.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Search completed successfully",
+    "data": {
+      "content": [
+        {
+          "entityType": "ASSET",
+          "entityId": "9d98ff1b-...",
+          "title": "MacBook Pro 16 M3 Max",
+          "subtitle": "Apple • A2991",
+          "snippet": "Primary development workstation with <b>AppleCare+</b>",
+          "category": "ELECTRONICS",
+          "status": "ACTIVE",
+          "amount": 3499.00,
+          "currency": "USD",
+          "eventDate": "2026-08-19",
+          "dependentId": "ae0abd14-...",
+          "dependentName": "Alice Jr.",
+          "entityRoute": "/assets/9d98ff1b-...",
+          "relevanceScore": 0.842,
+          "createdAt": "2026-09-19T21:59:00Z",
+          "metadata": {}
+        }
+      ],
+      "page": 0,
+      "size": 20,
+      "totalElements": 1,
+      "totalPages": 1,
+      "first": true,
+      "last": true
+    }
+  }
+  ```
+
+### `GET /api/v1/search/count`
+Aggregates matching counts partitioned across entity types for faceted navigation.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Query Parameters**: Same as `/api/v1/search`.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Search count summary retrieved",
+    "data": {
+      "totalCount": 4,
+      "countsByEntity": {
+        "ASSET": 1,
+        "INVOICE": 1,
+        "WARRANTY": 1,
+        "REMINDER": 1
+      }
+    }
+  }
+  ```
+
+### `GET /api/v1/search/suggest`
+Retrieves fast typeahead suggestions for search bars.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Query Parameters**:
+  * `q` (string, required): Prefix query string (minimum 2 characters).
+  * `limit` (int, default: 5): Maximum number of suggestions.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Suggestions retrieved successfully",
+    "data": [
+      {
+        "text": "MacBook Pro 16 M3 Max",
+        "entityType": "ASSET",
+        "entityId": "9d98ff1b-..."
+      }
+    ]
+  }
+  ```
+
+### `GET /api/v1/search/entities`
+Returns the complete list of 15 searchable entity types supported by LifeOS.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Supported search entity types",
+    "data": [
+      "ASSET", "INVOICE", "WARRANTY", "WARRANTY_CLAIM", "SERVICE_RECORD",
+      "LOAN", "INSURANCE_POLICY", "HEALTH_APPOINTMENT", "TRIP", "ITINERARY_ITEM",
+      "FINANCE_TRANSACTION", "BUDGET", "DOCUMENT", "DEPENDENT", "REMINDER"
+    ]
+  }
+  ```
+
+

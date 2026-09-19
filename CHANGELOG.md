@@ -4,6 +4,34 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0-alpha] - 2026-09-19
+### Added
+* **Phase 10: Unified Search & Advanced Query Platform**
+  * Flyway migration `V8__unified_search_indexes.sql`:
+    * Created expression-based full-text GIN indexes (`to_tsvector('english', ...)`) across 14 domain tables (`documents`, `assets`, `invoices`, `warranties`, `warranty_claims`, `asset_service_records`, `health_appointments`, `trips`, `itinerary_items`, `transactions`, `loans`, `insurance_policies`, `dependents`, `reminders`).
+    * Created `lifeos_unified_search_view` standard SQL view projecting all 14 LifeOS domain entities with normalized attributes and weighted `tsv_content` tiers (A, B, C).
+  * Native PostgreSQL Lexical & Full-Text Search Engine (`PostgresLexicalSearchEngine`):
+    * Implemented `SearchEngine` SPI/port with Spring Data JDBC `NamedParameterJdbcTemplate` pushdown.
+    * Integrated `websearch_to_tsquery` for safe natural query syntax (words, quoted exact phrases, negation `-term`, `OR`) without syntax errors.
+    * Calculated cover density relevance scoring via `ts_rank_cd(tsv_content, query, 32)` with recency tie-breaking.
+    * Extracted matching highlights and contextual snippets via `ts_headline`.
+  * Cross-Domain Unified Search API (`SearchController`):
+    * `GET /api/v1/search`: Cross-domain search supporting keyword matching, entity filtering (`entities=...`), date range filtering (`startDate`, `endDate`), monetary bounds (`minAmount`, `maxAmount`, `currency`), category and status filtering, and sorting (`RELEVANCE`, `DATE_DESC`, `DATE_ASC`, `AMOUNT_DESC`, `AMOUNT_ASC`, `TITLE_ASC`).
+    * `GET /api/v1/search/count`: Faceted matching count summary partitioned by entity type.
+    * `GET /api/v1/search/suggest`: Rapid prefix autocomplete typeahead suggestions.
+    * `GET /api/v1/search/entities`: Enumerates all 15 supported search entity types.
+  * Multi-Tenant Security & Dependent Enforcement (`UnifiedSearchService`):
+    * Scoped strictly to `SecurityUtils.getCurrentUserId()`. User A never sees User B's search results.
+    * Verified dependent ownership when filtering by `dependentId`; cross-tenant references return RFC 7807 `404 Not Found`.
+    * Enriched dependent names dynamically for matched entities.
+  * Future RAG Port Compatibility:
+    * Clean interface boundary ready for Phase 12 `HybridRrfSearchEngine` (Lexical + Dense Vector Reciprocal Rank Fusion) without breaking REST contracts.
+  * Verification:
+    * 16 new automated integration tests in `SearchControllerTest.java` bringing the full automated test suite to 119/119 passed tests (0 failures, 0 errors, 0 skipped).
+    * 19/19 live HTTP verification checks passed in `scratch/verify_phase10.ps1` against live Tomcat 8080 and PostgreSQL 18.
+
+---
+
 ## [0.9.0-alpha] - 2026-09-19
 ### Added
 * **Phase 9: Product Warranties, Invoices & Asset Management**

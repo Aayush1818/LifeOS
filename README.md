@@ -172,7 +172,14 @@ LifeOS Architecture
 * **Service & Maintenance Records**: Complete maintenance, repair, and upgrade logs (`asset_service_records`) linked to assets, invoices, and claims.
 * **Zero Duplication Subsystem Reuse**: Full reuse of Phase 4 document storage via `document_entity_links` for receipts, warranty certificates, and user manuals with dual-ownership verification.
 
-### H. Automated Reminders & Notifications
+### H. Unified Search & Advanced Query Platform (Phase 10 Implemented)
+* **Single-Pass Cross-Domain Discovery**: Search simultaneously across all 14 LifeOS bounded contexts (Assets, Invoices, Warranties, Claims, Service Records, Loans, Insurance Policies, Doctor Visits, Travel Itineraries, Financial Transactions, Budgets, Documents, Dependents, and Reminders).
+* **Native PostgreSQL Full-Text Search**: Powered by `tsvector` with cover density relevance ranking (`ts_rank_cd`), natural syntax parsing (`websearch_to_tsquery`), matched highlights (`ts_headline`), and expression-based GIN indexing.
+* **Dynamic Structured Filtering**: Fine-grained query refinement by entity type subset (`entities=...`), closed or open date ranges (`startDate`, `endDate`), monetary bounds (`minAmount`, `maxAmount`, `currency`), categories, lifecycle statuses, and verified dependents.
+* **Faceted Navigation & Quick Typeahead**: Faceted count breakdowns (`/api/v1/search/count`) for multi-tab UI displays and rapid autocomplete suggestions (`/api/v1/search/suggest`).
+* **Multi-Tenant Scoping**: All search operations strictly scoped to `userId = SecurityUtils.getCurrentUserId()`. Unauthorized dependent references trigger RFC 7807 `404 Not Found`.
+
+### I. Automated Reminders & Notifications
 * Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
 
 ---

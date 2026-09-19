@@ -170,6 +170,12 @@ com.lifeos
 │   ├── repository              # ReminderRepository
 │   └── entity                  # ReminderEntity, NotificationEntity
 │
+├── search                      # Unified Search & Advanced Query Platform
+│   ├── controller              # SearchController (/api/v1/search, /count, /suggest, /entities)
+│   ├── service                 # UnifiedSearchService (Enforces tenant isolation, validates boundaries)
+│   ├── engine                  # SearchEngine port, PostgresLexicalSearchEngine (tsvector, GIN, websearch_to_tsquery)
+│   └── dto                     # SearchQuery, SearchResultItemDto, SearchCountSummaryDto, SearchSuggestionDto
+│
 └── ai                          # AI, RAG & Agentic Intelligence
     ├── port                    # LLMProvider, EmbeddingProvider, VectorStorePort
     ├── adapter                 # OpenAIProvider, OllamaProvider, PgVectorStoreAdapter
