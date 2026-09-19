@@ -463,7 +463,7 @@ CREATE INDEX idx_loan_payments_loan ON loan_payments(loan_id);
 CREATE INDEX idx_loan_payments_date ON loan_payments(loan_id, payment_date);
 
 -- ============================================================================
--- 6. HEALTH & DOCTOR APPOINTMENTS (NON-DIAGNOSTIC)
+-- 6. HEALTH & DOCTOR APPOINTMENTS (NON-DIAGNOSTIC, Enhanced in Phase 7 / V5)
 -- ============================================================================
 CREATE TABLE health_appointments (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -473,10 +473,17 @@ CREATE TABLE health_appointments (
     doctor_name VARCHAR(150) NOT NULL,
     specialization VARCHAR(100) NOT NULL,
     clinic_or_hospital VARCHAR(200) NOT NULL,
+    clinic_phone VARCHAR(30),
+    clinic_address VARCHAR(255),
     appointment_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    scheduled_end_time TIMESTAMP WITH TIME ZONE,
+    time_zone VARCHAR(50) NOT NULL DEFAULT 'UTC',
     purpose VARCHAR(255) NOT NULL,
     notes TEXT,
-    status VARCHAR(30) NOT NULL DEFAULT 'SCHEDULED', -- SCHEDULED, COMPLETED, CANCELLED
+    status VARCHAR(30) NOT NULL DEFAULT 'SCHEDULED', -- SCHEDULED, COMPLETED, CANCELLED, RESCHEDULED, NO_SHOW
+    reminder_offset_minutes INT NOT NULL DEFAULT 1440,
+    follow_up_to_id UUID REFERENCES health_appointments(id) ON DELETE SET NULL,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
@@ -484,6 +491,9 @@ CREATE TABLE health_appointments (
 
 CREATE INDEX idx_health_user ON health_appointments(user_id) WHERE NOT is_deleted;
 CREATE INDEX idx_health_time ON health_appointments(appointment_time);
+CREATE INDEX idx_health_user_status_time ON health_appointments(user_id, status, appointment_time) WHERE NOT is_deleted;
+CREATE INDEX idx_health_user_dependent ON health_appointments(user_id, dependent_id) WHERE NOT is_deleted;
+CREATE INDEX idx_health_follow_up ON health_appointments(follow_up_to_id) WHERE follow_up_to_id IS NOT NULL;
 
 -- ============================================================================
 -- 7. TRAVEL & TRIPS
@@ -673,4 +683,24 @@ PostgreSQL generated column `tsv_content` converts English text chunks into inde
   * `idx_documents_user_category` on `documents(user_id, category)` where `is_deleted = false`.
   * `idx_documents_user_dependent` on `documents(user_id, dependent_id)` where `is_deleted = false`.
   * `idx_documents_user_status` on `documents(user_id, ingestion_status)` where `is_deleted = false`.
+
+### `V3__finance_enhancements.sql` (Phase 5)
+* Enhanced `transactions` table with `is_refund`, `notes`, `document_id` (FK to `documents`), `recurring_id` (FK to `recurring_transactions`), and `is_recurring`.
+* Enhanced `budgets` table with JSONB `alert_thresholds` and soft-delete column `is_deleted`.
+* Created `recurring_transactions` table supporting recurrence patterns (`DAILY`, `WEEKLY`, `MONTHLY`, `QUARTERLY`, `YEARLY`), billing days, and auto-creation flags.
+* Added composite query indexes: `idx_transactions_user_date_type`, `idx_transactions_user_cat_date`, `idx_transactions_dup_check`, and `uq_budgets_user_cat_month_year`.
+
+### `V4__loan_and_insurance_enhancements.sql` (Phase 6)
+* Enhanced `loans` table with `lender_name`, `loan_type`, `interest_type` (`FIXED`, `VARIABLE`), `payment_frequency`, `tenure_months`, `monthly_emi`, `emi_due_day`, `start_date`, `end_date`, `total_principal_paid`, `total_interest_paid`, `document_id` (FK to `documents`), `is_deleted`.
+* Created `loan_payments` table supporting `payment_amount`, `principal_component`, `interest_component`, `payment_date`, `payment_type` (`REGULAR_EMI`, `PARTIAL_PREPAYMENT`, `FULL_CLOSURE`), `prepayment_strategy` (`REDUCE_TENURE`, `REDUCE_EMI`), `transaction_ref`, `notes`.
+* Enhanced `insurance_policies` table with `policy_name`, `provider_name`, `policy_type`, `coverage_amount`, `premium_frequency`, `start_date`, `expiry_date`, `next_renewal_date`, `dependent_id` (FK to `dependents`), `document_id` (FK to `documents`), JSONB `metadata`, `is_deleted`.
+* Enhanced `reminders` table with `status` (`PENDING`, `DISMISSED`, `SNOOZED`, `COMPLETED`), `due_at`, `reminder_type`, `target_entity_type`, `target_entity_id`, and multi-tenant performance indexes.
+
+### `V5__healthcare_and_appointments.sql` (Phase 7)
+* Enhanced `health_appointments` table with `clinic_phone`, `clinic_address`, `follow_up_to_id` (self-referencing FK to `health_appointments`), `scheduled_end_time`, `time_zone`, `reminder_offset_minutes`, JSONB `metadata`, `is_deleted`.
+* Added composite query indexes:
+  * `idx_health_user_status_time` on `health_appointments(user_id, status, appointment_time)` where `is_deleted = false`.
+  * `idx_health_user_dependent` on `health_appointments(user_id, dependent_id)` where `is_deleted = false`.
+  * `idx_health_follow_up` on `health_appointments(follow_up_to_id)` where `follow_up_to_id IS NOT NULL`.
+* Added composite index `idx_doc_entity_links_composite` and unique constraint `uq_doc_entity_links` on `document_entity_links(entity_type, entity_id, document_id)`.
 

@@ -4,6 +4,44 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0-alpha] - 2026-09-19
+### Added
+* **Phase 7: Healthcare & Doctor Appointments (Non-Diagnostic) & Medical Document Organization**
+  * Flyway migration `V5__healthcare_and_appointments.sql`:
+    * Enhanced `appointments` table with `clinic_phone`, `clinic_address`, `follow_up_to_id` (self-referencing FK), `scheduled_end_time`, `time_zone`, `reminder_offset_minutes`, JSONB `metadata`, `is_deleted`.
+    * Added composite query indexes: `idx_appointments_user_time`, `idx_appointments_user_status`, `idx_appointments_user_dep`.
+    * Added unique constraint `uq_document_entity_link` on `document_entity_links (document_id, entity_type, entity_id)` for idempotent document associations.
+  * Non-Diagnostic Regulatory Safety Invariants:
+    * Strictly organizational, administrative, and scheduling.
+    * Zero diagnostic evaluation, treatment recommendations, clinical interpretation, or medication suggestions.
+    * Static non-diagnostic disclaimer delivered on every appointment response (`AppointmentResponse.NON_DIAGNOSTIC_DISCLAIMER`).
+  * Healthcare Appointments Management:
+    * Full CRUD for doctor consultations across all medical specialties (`Cardiology`, `Pediatrics`, `Dermatology`, etc.).
+    * Strict status lifecycle: `SCHEDULED`, `COMPLETED`, `CANCELLED`, `RESCHEDULED`, `NO_SHOW`.
+    * Rescheduling recalculates appointment start/end times and automatically synchronizes the linked reminder `due_at`.
+    * Status transition to `COMPLETED`, `CANCELLED`, `NO_SHOW`, or appointment deletion automatically dismisses the linked reminder (`ReminderStatus.DISMISSED`).
+    * Proactive upcoming appointments query (`/api/v1/healthcare/appointments/upcoming`) with configurable day window (default: 14 days).
+    * Follow-up appointment linking via `follow_up_to_id`.
+  * Family & Dependent Integration:
+    * Appointments can be booked for the user directly or on behalf of verified family dependents.
+    * Multi-tenant validation ensures dependent belongs to the authenticated user (returns 404 otherwise).
+  * Medical Document Subsystem Expansion:
+    * Extended `DocumentType` enum with medical types: `CONSULTATION_SUMMARY`, `DISCHARGE_SUMMARY`, `DIAGNOSTIC_REPORT`, `VACCINATION_RECORD`, `MEDICAL_BILL` alongside existing `PRESCRIPTION`.
+    * Bi-directional multi-document linking via `DocumentEntityLinkEntity` and `DocumentEntityLinkRepository`.
+    * Medical documents list endpoint (`/api/v1/healthcare/documents`) with filtering by document type and dependent ID.
+    * 100% reuse of Phase 4 document storage (`LocalStorageService`) and Apache Tika text extraction with zero duplicate infrastructure.
+  * Reminder Subsystem Synchronization:
+    * Synchronized with core `reminders` table (`reminder_type = 'HEALTH_APPOINTMENT'`, `target_entity_type = 'APPOINTMENT'`).
+    * Configurable `reminderOffsetMinutes` (default: 1440 min / 24 hours), calculating `due_at = appointment_time - reminder_offset`.
+  * Multi-Tenant Resource Authorization:
+    * All appointments, linked documents, and dependents strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+    * Cross-tenant access attempts return RFC 7807 `404 Not Found`.
+  * Verification:
+    * 10 automated integration tests in `HealthcareControllerTest.java` bringing total automated test suite to 73/73 passed tests (0 failures, 0 errors).
+    * 16/16 live HTTP verification checks passed (`scratch/verify_phase7.ps1`) on Tomcat port 8080 against PostgreSQL 18.
+
+---
+
 ## [0.6.0-alpha] - 2026-09-19
 ### Added
 * **Phase 6: Loan Amortization & Insurance Management**

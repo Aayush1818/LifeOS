@@ -739,21 +739,120 @@ Soft-deletes the insurance policy and automatically dismisses the linked renewal
 
 ---
 
-## 7. Healthcare & Appointments (`/api/v1/health`)
-*Strictly Organizational & Administrative — No Medical Diagnosis*
+## 7. Healthcare & Doctor Appointments Organization (`/api/v1/healthcare`)
+*Strictly Organizational, Administrative & Scheduling — Regulatory Non-Diagnostic Safety Boundary*
 
-### `POST /api/v1/health/appointments`
+Every response returned by the healthcare subsystem includes the static safety contract disclaimer:
+> `"Strictly organizational & non-diagnostic. LifeOS does not provide medical diagnosis, clinical evaluation, or treatment advice."`
+
+### `POST /api/v1/healthcare/appointments`
+Creates a doctor consultation appointment for the user or their verified family dependent, and automatically schedules a due date reminder (`HEALTH_APPOINTMENT`).
 * **Request Body**:
   ```json
   {
     "doctorName": "Dr. Sarah Jenkins",
     "specialization": "Cardiology",
-    "clinicOrHospital": "City Heart Institute",
+    "clinicOrHospital": "Apex Cardiology Institute",
+    "clinicPhone": "+1-555-019-2834",
+    "clinicAddress": "100 Medical Center Way, Suite 400",
     "appointmentTime": "2026-10-15T14:30:00Z",
-    "purpose": "Annual cardiac stress test and general checkup",
-    "notes": "Bring previous lipid profile report"
+    "scheduledEndTime": "2026-10-15T15:15:00Z",
+    "timeZone": "America/New_York",
+    "purpose": "Annual cardiovascular evaluation and ECG review",
+    "notes": "Bring current medication list and past lipid panels",
+    "reminderOffsetMinutes": 60,
+    "dependentId": "c84fefd8-4dd7-4ff3-9ec0-6c538d140b44",
+    "primaryDocumentId": "96ff3ef3-f773-4ab9-bbc9-93fd6d97e4d4"
   }
   ```
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "message": "Appointment created successfully",
+    "data": {
+      "id": "68bde08a-9fc3-45ca-afc1-410c618d6f88",
+      "doctorName": "Dr. Sarah Jenkins",
+      "specialization": "Cardiology",
+      "clinicOrHospital": "Apex Cardiology Institute",
+      "clinicPhone": "+1-555-019-2834",
+      "clinicAddress": "100 Medical Center Way, Suite 400",
+      "appointmentTime": "2026-10-15T14:30:00Z",
+      "scheduledEndTime": "2026-10-15T15:15:00Z",
+      "timeZone": "America/New_York",
+      "purpose": "Annual cardiovascular evaluation and ECG review",
+      "notes": "Bring current medication list and past lipid panels",
+      "status": "SCHEDULED",
+      "dependentId": "c84fefd8-4dd7-4ff3-9ec0-6c538d140b44",
+      "dependentName": "Emma Verified",
+      "reminderOffsetMinutes": 60,
+      "linkedDocuments": [],
+      "disclaimer": "Strictly organizational & non-diagnostic. LifeOS does not provide medical diagnosis, clinical evaluation, or treatment advice.",
+      "createdAt": "2026-09-19T17:57:32Z"
+    }
+  }
+  ```
+
+### `GET /api/v1/healthcare/appointments`
+Retrieves paginated consultation records for the authenticated user, optionally filtered by `dependentId`, `status`, `doctorName`, `startDate`, or `endDate`.
+
+### `GET /api/v1/healthcare/appointments/{id}`
+Retrieves full details of an appointment including all linked medical documents (prescriptions, reports, summaries). Returns RFC 7807 `404 Not Found` if accessed by another user.
+
+### `PUT /api/v1/healthcare/appointments/{id}`
+Updates appointment metadata (doctor name, specialty, clinic address, notes, purpose).
+
+### `POST /api/v1/healthcare/appointments/{id}/reschedule`
+Modifies the appointment time and automatically updates the linked reminder's `due_at` date.
+* **Request Body**:
+  ```json
+  {
+    "newAppointmentTime": "2026-10-18T10:00:00Z",
+    "newScheduledEndTime": "2026-10-18T10:45:00Z",
+    "timeZone": "America/New_York",
+    "notes": "Rescheduled due to conference travel",
+    "reminderOffsetMinutes": 60
+  }
+  ```
+
+### `POST /api/v1/healthcare/appointments/{id}/status`
+Transitions the appointment status (`SCHEDULED`, `COMPLETED`, `CANCELLED`, `RESCHEDULED`, `NO_SHOW`). When transitioning to `COMPLETED`, `CANCELLED`, or `NO_SHOW`, the linked reminder is automatically dismissed (`ReminderStatus.DISMISSED`).
+* **Request Body**:
+  ```json
+  {
+    "status": "COMPLETED",
+    "notes": "Consultation concluded. Blood pressure measured at 120/80."
+  }
+  ```
+
+### `DELETE /api/v1/healthcare/appointments/{id}`
+Soft-deletes the consultation and automatically dismisses the linked reminder.
+
+### `GET /api/v1/healthcare/appointments/upcoming`
+Retrieves active appointments (`SCHEDULED`, `RESCHEDULED`) falling within the upcoming day window (default: 14 days).
+* **Query Parameters**: `windowDays=14`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "windowDays": 14,
+      "upcomingCount": 1,
+      "appointments": [ ... ]
+    }
+  }
+  ```
+
+### `POST /api/v1/healthcare/appointments/{id}/documents/{documentId}`
+Attaches an existing uploaded document (category `MEDICAL` or associated) to the appointment via `document_entity_links`. Validates that both the appointment and document belong to the authenticated user.
+
+### `DELETE /api/v1/healthcare/appointments/{id}/documents/{documentId}`
+Unlinks the document from the appointment.
+
+### `GET /api/v1/healthcare/documents`
+Retrieves all medical documents belonging to the user with optional filters:
+* **Query Parameters**: `type=PRESCRIPTION`, `dependentId={uuid}`, `page=0&size=20`
+* **Response `200 OK`**: Paginated `MedicalDocumentLinkResponse` containing `id`, `title`, `documentType`, `mimeType`, `originalFilename`.
 
 ---
 

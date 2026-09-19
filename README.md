@@ -139,9 +139,14 @@ LifeOS Architecture
   * Proactive upcoming renewals scanning (`/api/v1/insurance/renewals/upcoming?windowDays=30`).
   * Soft-deletion automatically dismisses linked renewal reminders.
 
-### E. Health & Appointments (Non-Diagnostic)
-* Organization system for doctors, hospitals, appointments, and prescriptions.
-* *Strict Non-Diagnostic Safety Boundary*: System assists with scheduling and document retrieval; no diagnostic advice is ever generated.
+### E. Health & Doctor Appointments Organization (Phase 7 Implemented)
+* **Strict Non-Diagnostic Safety Boundary**: The healthcare subsystem is strictly organizational, scheduling, and administrative. LifeOS enforces explicit static medical disclaimers on every response; no medical diagnosis, clinical evaluation, treatment recommendations, or medication prescriptions are ever generated.
+* **Doctor & Clinic Organization**: Comprehensive tracking of doctors, medical specialties, clinic addresses, contact details, appointment start/end times, and client timezones.
+* **Lifecycle & Status Transitions**: Appointment statuses (`SCHEDULED`, `COMPLETED`, `CANCELLED`, `RESCHEDULED`, `NO_SHOW`) with notes and follow-up appointment linking (`follow_up_to_id`).
+* **Family & Dependent Care**: Schedule and manage consultations for the authenticated user or any verified family dependent.
+* **Medical Document Organization**: Bi-directional document linking (`document_entity_links`) to associate prescriptions, lab reports, discharge summaries, and bills directly to consultation records, utilizing Phase 4 file storage without duplication.
+* **Reminder Subsystem Synchronization**: Automatic creation, rescheduling, and dismissal of `HEALTH_APPOINTMENT` reminders in the core notifications subsystem based on configurable reminder offset minutes.
+* **Proactive Upcoming Visits**: Rapid querying of upcoming appointments within a configurable day window (`/api/v1/healthcare/appointments/upcoming?windowDays=14`).
 
 ### F. Travel & Trips
 * Itinerary management with dates, hotels, transport tickets, and expense budgets.

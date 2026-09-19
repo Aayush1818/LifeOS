@@ -139,7 +139,27 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 7. Anti-Hallucination & AI Privacy Boundaries
+## 7. Healthcare & Medical Data Security & Non-Diagnostic Boundaries
+
+1. **Multi-Tenant Scoping & Resource Isolation**:
+   * All healthcare appointments, linked medical documents, and dependent associations are strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+   * Cross-tenant access attempts return RFC 7807 `404 Not Found` rather than `403 Forbidden` to prevent appointment or health record enumeration.
+   * Cross-module tenant verification: referencing a `dependentId` or `documentId` validates that the referenced entity belongs to the authenticated user and is active. Cross-tenant references trigger RFC 7807 `404 Not Found`.
+2. **Regulatory Non-Diagnostic Safety Boundary**:
+   * The healthcare module is strictly organizational, scheduling, and administrative.
+   * LifeOS strictly prohibits automated medical diagnosis, clinical interpretation of lab values, treatment recommendations, symptom checking, or prescription generation.
+   * Every appointment response enforces an explicit static safety disclaimer contract: `"Strictly organizational & non-diagnostic. LifeOS does not provide medical diagnosis, clinical evaluation, or treatment advice."`
+3. **Medical Document Protection**:
+   * Prescriptions, lab reports, and consultation notes leverage Phase 4 document storage with magic-byte MIME type validation (Apache Tika), 25MB file caps, and user-isolated disk directories.
+   * Document linking (`document_entity_links`) requires verified ownership of both the appointment and the document before establishing an association.
+4. **Reminder Synchronization Integrity**:
+   * Consultation reminders synchronize directly into the core `reminders` table (`reminder_type = 'HEALTH_APPOINTMENT'`).
+   * Rescheduling updates the reminder's `due_at` timestamp based on configured `reminder_offset_minutes`.
+   * Appointment completion (`COMPLETED`), cancellation (`CANCELLED`), or deletion automatically dismisses the linked reminder (`ReminderStatus.DISMISSED`), eliminating zombie alerts.
+
+---
+
+## 8. Anti-Hallucination & AI Privacy Boundaries
 
 1. **Context Window Isolation**: AI conversation sessions strictly inject retrieved chunks tagged with the authenticated user's ID. No cross-tenant document chunks can enter the LLM prompt context.
 2. **No Data Leakage in AI Logs**: Logs sanitize user PII, document binary excerpts, and authentication headers.
@@ -147,7 +167,7 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 8. Secrets Management
+## 9. Secrets Management
 
 * **No Hard-Coded Credentials**: API keys, database passwords, and JWT secrets are injected via system environment variables or `.env` files (ignored in `.gitignore`).
 * **Environment Template**: A fully documented `.env.example` template is provided with production-recommended defaults.

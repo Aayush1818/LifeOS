@@ -144,11 +144,12 @@ com.lifeos
 │   ├── repository              # ReminderRepository
 │   └── entity                  # ReminderEntity, ReminderStatus
 │
-├── health                      # Doctors & Appointments (Non-Diagnostic)
-│   ├── controller              # HealthController (/api/v1/health)
-│   ├── service                 # HealthService, AppointmentReminderBridge
-│   ├── repository              # AppointmentRepository, DoctorRepository
-│   └── entity                  # HealthAppointmentEntity, DoctorEntity
+├── healthcare                  # Healthcare Appointments & Medical Document Organization (Non-Diagnostic)
+│   ├── controller              # AppointmentController (/api/v1/healthcare/appointments), MedicalDocumentController (/documents)
+│   ├── service                 # AppointmentService (Lifecycle, reschedule, reminder sync), MedicalDocumentService
+│   ├── repository              # AppointmentRepository
+│   ├── dto                     # Create/Update/Reschedule/Status Requests, AppointmentResponse, MedicalDocumentLinkResponse
+│   └── entity                  # AppointmentEntity (health_appointments table), AppointmentStatus (SCHEDULED, COMPLETED, etc.)
 │
 ├── travel                      # Trips, Bookings & Itineraries
 │   ├── controller              # TravelController (/api/v1/travel)
