@@ -5,6 +5,11 @@ import com.lifeos.auth.dto.AuthResponse;
 import com.lifeos.auth.dto.RegisterRequest;
 import com.lifeos.auth.service.AuthService;
 import com.lifeos.user.dto.UpdateUserRequest;
+import com.lifeos.auth.security.JwtTokenProvider;
+import com.lifeos.common.security.UserPrincipal;
+import com.lifeos.user.entity.Role;
+import com.lifeos.user.entity.UserEntity;
+import com.lifeos.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,6 +38,12 @@ class UserControllerTest {
 
     @Autowired
     private AuthService authService;
+
+    @Autowired
+    private JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    private UserRepository userRepository;
 
     private String accessToken;
     private String userEmail;
@@ -89,5 +100,58 @@ class UserControllerTest {
                 .andExpect(jsonPath("$.data.lastName").value("Keys"))
                 .andExpect(jsonPath("$.data.phone").value("+1122334455"))
                 .andExpect(jsonPath("$.data.preferences.theme").value("dark"));
+    }
+
+    @Test
+    void getProfileWithExpiredJwtShouldReturnUnauthorized() throws Exception {
+        UserEntity user = userRepository.findByEmailAndIsDeletedFalse(userEmail).orElseThrow();
+        UserPrincipal principal = UserPrincipal.create(user);
+        String expiredToken = jwtTokenProvider.generateCustomToken(principal, -10000L);
+
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer " + expiredToken))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Unauthorized"));
+    }
+
+    @Test
+    void getProfileWithMalformedJwtShouldReturnUnauthorized() throws Exception {
+        mockMvc.perform(get("/api/v1/users/me")
+                        .header("Authorization", "Bearer invalid.malformed.signature"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.title").value("Unauthorized"));
+    }
+
+    @Test
+    void userWithUserRoleAccessingAdminEndpointShouldReturnForbidden() throws Exception {
+        mockMvc.perform(get("/api/v1/admin/status")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.title").value("Forbidden"));
+    }
+
+    @Test
+    void adminWithAdminRoleAccessingAdminEndpointShouldReturnSuccess() throws Exception {
+        String adminEmail = "admin." + UUID.randomUUID() + "@example.com";
+        RegisterRequest adminRequest = RegisterRequest.builder()
+                .email(adminEmail)
+                .password("Password123!@#")
+                .firstName("Admin")
+                .lastName("Root")
+                .build();
+        authService.register(adminRequest);
+
+        UserEntity adminEntity = userRepository.findByEmailAndIsDeletedFalse(adminEmail).orElseThrow();
+        adminEntity.setRole(Role.ROLE_ADMIN);
+        userRepository.save(adminEntity);
+
+        UserPrincipal adminPrincipal = UserPrincipal.create(adminEntity);
+        String adminToken = jwtTokenProvider.generateAccessToken(adminPrincipal);
+
+        mockMvc.perform(get("/api/v1/admin/status")
+                        .header("Authorization", "Bearer " + adminToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.adminAccess").value(true));
     }
 }

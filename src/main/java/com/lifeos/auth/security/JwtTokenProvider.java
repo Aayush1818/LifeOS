@@ -40,8 +40,12 @@ public class JwtTokenProvider {
     }
 
     public String generateAccessToken(UserPrincipal principal) {
+        return generateCustomToken(principal, accessTokenExpirationMs);
+    }
+
+    public String generateCustomToken(UserPrincipal principal, long expirationMs) {
         Instant now = Instant.now();
-        Instant expiry = now.plusMillis(accessTokenExpirationMs);
+        Instant expiry = now.plusMillis(expirationMs);
 
         return Jwts.builder()
                 .subject(principal.getId().toString())
