@@ -4,6 +4,38 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0-alpha] - 2026-09-19
+### Added
+* **Phase 5: Personal Finance & Monthly Budgeting**
+  * Flyway migration `V3__finance_enhancements.sql`:
+    * Enhanced `transactions` table with `is_refund`, `notes`, `document_id` (FK to `documents`), `recurring_id` (FK to `recurring_transactions`), and `is_recurring`.
+    * Enhanced `budgets` table with JSONB `alert_thresholds` and soft-delete column `is_deleted`.
+    * Created `recurring_transactions` table supporting recurrence patterns (`DAILY`, `WEEKLY`, `MONTHLY`, `QUARTERLY`, `YEARLY`), billing days, and auto-creation flags.
+    * Added composite query indexes: `idx_transactions_user_date_type`, `idx_transactions_user_cat_date`, `idx_transactions_dup_check`, and `uq_budgets_user_cat_month_year`.
+  * Deterministic Monetary Math:
+    * Strict `BigDecimal` representation for all monetary calculations (`NUMERIC(14,2)`, percentages `NUMERIC(5,2)`), rounding `RoundingMode.HALF_UP`. Zero floating-point types (`float`/`double`).
+    * Zero-budget edge case handling preventing divide-by-zero exceptions (`ArithmeticException`).
+  * High-Performance Hybrid Persistence Architecture:
+    * JPA repositories for domain CRUD operations (`TransactionRepository`, `RecurringTransactionRepository`, `BudgetRepository`).
+    * Direct Spring JDBC (`FinanceAnalyticsJdbcRepository` with `NamedParameterJdbcTemplate`) for SQL aggregation pushdown (monthly income/expenses, category breakdowns, month-over-month trend analytics).
+    * Refund modeling: expenses flagged with `is_refund = true` are subtracted in aggregations (`SUM(CASE WHEN is_refund THEN -amount ELSE amount END)`), properly reducing net expenses and increasing net savings.
+  * Monthly Budgeting & Alerting Subsystem:
+    * Dynamic, configurable alert thresholds (`[50, 75, 90, 100]` default) stored in PostgreSQL JSONB.
+    * In-flight run-rate projected spending calculation: `(spent / daysElapsed) * totalDaysInMonth`.
+    * Decoupled Spring application event `BudgetThresholdReachedEvent` published upon reaching alert thresholds.
+  * Duplicate Transaction Detection:
+    * Heuristic check detecting duplicate submissions on the same user, date, amount, and category, setting `possibleDuplicateWarning` without rejecting the transaction.
+  * Multi-Tenant Resource Authorization:
+    * All financial transactions, budgets, recurring rules, and summaries strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+    * Cross-tenant access returns RFC 7807 `404 Not Found` to prevent ID enumeration.
+  * AI Agent Tool Readiness:
+    * Exposes clean Java service contracts (`searchTransactions`, `getMonthlySummary`, `getBudgetStatus`, `getRecurringExpenses`) designed for direct Phase 9 LLM Agent tool execution.
+  * Automated and Live Verification:
+    * 12 new comprehensive integration tests (8 in `FinanceControllerTest`, 4 in `BudgetControllerTest`), bringing total automated integration tests to 42 (100% pass rate).
+    * 21/21 live HTTP checks passed over Tomcat 8080 against PostgreSQL 18.
+
+---
+
 ## [0.4.0-alpha] - 2026-09-19
 ### Added
 * **Phase 4: Document Management & File Storage**

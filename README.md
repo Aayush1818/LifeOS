@@ -111,10 +111,14 @@ LifeOS Architecture
   * `getTripItinerary(tripId)`
 * Modifying actions (e.g., creating reminders, recording payments) trigger mandatory confirmation prompts before execution.
 
-### C. Personal Finance & Monthly Budgeting
-* Track income, expenses, categories, payment methods, and subscriptions.
-* Fast analytical queries utilizing direct JDBC aggregations.
-* Monthly category budgets with configurable alert thresholds (50%, 75%, 90%, 100%).
+### C. Personal Finance & Monthly Budgeting (Phase 5 Implemented)
+* **Strict Monetary Math**: 100% `BigDecimal` calculations with PostgreSQL `NUMERIC(14,2)` and `RoundingMode.HALF_UP` (zero float/double drift).
+* **Hybrid Persistence Engine**: Spring Data JPA for domain CRUD paired with direct Spring JDBC (`NamedParameterJdbcTemplate`) for deterministic monthly summaries, category breakdowns, and month-over-month trend analytics.
+* **Transparent Refund Modeling**: Expense refunds reduce net monthly expenses and properly increase savings calculations.
+* **Recurring Obligations & Subscriptions**: Scheduled bills and subscriptions with recurrence patterns (`DAILY`, `WEEKLY`, `MONTHLY`, `QUARTERLY`, `YEARLY`) and next due date calculation.
+* **Monthly Budgeting & Alerts**: Category budgets with dynamic JSONB alert thresholds (`[50, 75, 90, 100]`), in-flight run-rate projected spending, and decoupled Spring application events (`BudgetThresholdReachedEvent`).
+* **Heuristic Duplicate Detection**: Flags suspicious duplicate submissions on same user, date, amount, and category without blocking valid repeat entries.
+* **Multi-Tenant Isolation**: Strict resource-level authorization returning RFC 7807 `404 Not Found` for cross-tenant access attempts.
 
 ### D. Insurance & Loan Portfolios
 * Insurance tracker for Health, Life, Vehicle, Property, and Travel policies.

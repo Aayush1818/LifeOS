@@ -99,7 +99,24 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 5. Anti-Hallucination & AI Privacy Boundaries
+## 5. Personal Finance & Monthly Budgeting Security
+
+1. **Multi-Tenant Financial Scoping**:
+   * All transactions, recurring transaction rules, category budgets, and analytical aggregations are strictly filtered by `user_id = SecurityUtils.getCurrentUserId()`.
+   * Cross-tenant access attempts to transactions, budgets, or recurring rules return RFC 7807 `404 Not Found` rather than `403 Forbidden` to prevent financial resource enumeration.
+   * Analytical summary endpoints (`/api/v1/finance/analytics/monthly-summary`, `/category-breakdown`, `/month-over-month`, `/budgets/status`) execute strictly within the authenticated tenant context at the SQL level.
+2. **Deterministic Monetary Integrity**:
+   * All monetary math is handled exclusively with `BigDecimal` using `RoundingMode.HALF_UP` and stored in PostgreSQL as `NUMERIC(14,2)` (percentages as `NUMERIC(5,2)`).
+   * Zero usage of IEEE 754 floating-point types (`float`, `double`) across the entire backend, preventing rounding drift and financial calculation discrepancies.
+   * LLMs are never used to compute monetary aggregates, remaining balances, or budget utilization rates.
+3. **Zero-Budget Edge Case Protection**:
+   * Division-by-zero protection prevents `ArithmeticException` when evaluating budgets with zero allocated or zero spent amounts.
+4. **Heuristic Duplicate Detection**:
+   * Automatically inspects recent transactions matching the same user, date, amount, and category, setting a `possibleDuplicateWarning` flag to warn the client against double-submission without blocking valid intentional transactions.
+
+---
+
+## 6. Anti-Hallucination & AI Privacy Boundaries
 
 1. **Context Window Isolation**: AI conversation sessions strictly inject retrieved chunks tagged with the authenticated user's ID. No cross-tenant document chunks can enter the LLM prompt context.
 2. **No Data Leakage in AI Logs**: Logs sanitize user PII, document binary excerpts, and authentication headers.

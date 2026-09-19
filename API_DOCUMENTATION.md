@@ -339,42 +339,185 @@
 
 ---
 
-## 4. Personal Finance & Budgets (`/api/v1/finance`, `/api/v1/budgets`)
+## 4. Personal Finance & Monthly Budgets (`/api/v1/finance`, `/api/v1/budgets`)
 
-### `GET /api/v1/finance/analytics/monthly-summary`
-* **Query Params**: `?month=9&year=2026`
-* **Engine**: Direct JDBC aggregation
-* **Response `200 OK`**:
+### `POST /api/v1/finance/transactions`
+* Records a new income or expense transaction with strict `BigDecimal` precision.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Request Body**:
   ```json
   {
-    "totalIncome": 120000.00,
-    "totalExpenses": 68400.00,
-    "netSavings": 51600.00,
-    "categoryBreakdown": {
-      "RENT": 25000.00,
-      "FOOD": 12000.00,
-      "EMI": 22400.00,
-      "BILLS": 9000.00
+    "transactionType": "EXPENSE",
+    "category": "FOOD_DINING",
+    "amount": 150.75,
+    "paymentMethod": "CREDIT_CARD",
+    "transactionDate": "2026-09-19",
+    "description": "Weekly supermarket groceries",
+    "notes": "Organic produce",
+    "documentId": "cb50eac7-547d-4dd8-b3e0-31c0fc4b39b9",
+    "isRecurring": false,
+    "isRefund": false
+  }
+  ```
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "message": "Transaction recorded successfully",
+    "data": {
+      "id": "2b95b8d2-7c38-4e8c-bb09-6447814b0b14",
+      "amount": 150.75,
+      "transactionType": "EXPENSE",
+      "category": "FOOD_DINING",
+      "transactionDate": "2026-09-19",
+      "paymentMethod": "CREDIT_CARD",
+      "description": "Weekly supermarket groceries",
+      "notes": "Organic produce",
+      "status": "POSTED",
+      "documentId": "cb50eac7-547d-4dd8-b3e0-31c0fc4b39b9",
+      "recurringId": null,
+      "isRecurring": false,
+      "isRefund": false,
+      "possibleDuplicateWarning": false,
+      "createdAt": "2026-09-19T14:40:00Z",
+      "updatedAt": "2026-09-19T14:40:00Z"
     }
   }
   ```
 
+### `GET /api/v1/finance/transactions`
+* Lists paginated transactions belonging to the authenticated user.
+* **Query Params**: `type`, `category`, `status`, `startDate`, `endDate`, `page`, `size`, `sort`.
+* **Response `200 OK`**: `Page<TransactionResponse>`.
+
+### `GET /api/v1/finance/transactions/{id}`
+* Retrieves single transaction by ID. Returns `404 Not Found` if not owned by authenticated user.
+
+### `PUT /api/v1/finance/transactions/{id}`
+* Updates transaction details. Returns `404 Not Found` if not owned by authenticated user.
+
+### `DELETE /api/v1/finance/transactions/{id}`
+* Soft-deletes transaction (`is_deleted = true`). Returns `404 Not Found` if not owned by authenticated user.
+
+### `GET /api/v1/finance/analytics/monthly-summary`
+* High-performance deterministic aggregation via direct Spring JDBC (`FinanceAnalyticsJdbcRepository`).
+* **Query Params**: `?month=9&year=2026` (defaults to current month/year if omitted)
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "month": 9,
+      "year": 2026,
+      "totalIncome": 6000.00,
+      "totalExpenses": 600.00,
+      "netSavings": 5400.00,
+      "savingsRatePercentage": 90.00,
+      "recurringExpensesTotal": 22.99,
+      "categoryBreakdown": [
+        {
+          "category": "FOOD_DINING",
+          "amount": 450.00,
+          "percentageOfTotal": 75.00,
+          "transactionCount": 3
+        },
+        {
+          "category": "UTILITIES",
+          "amount": 150.00,
+          "percentageOfTotal": 25.00,
+          "transactionCount": 1
+        }
+      ],
+      "priorMonthComparison": {
+        "currentMonthExpenses": 600.00,
+        "priorMonthExpenses": 0.00,
+        "deltaAmount": 600.00,
+        "percentageChange": 100.00,
+        "direction": "INCREASED"
+      }
+    }
+  }
+  ```
+
+### `GET /api/v1/finance/analytics/category-breakdown`
+* Retrieves list of category spending breakdowns with percentages and transaction counts.
+
+### `GET /api/v1/finance/analytics/month-over-month`
+* Returns month-over-month expense change, absolute delta, and direction (`INCREASED`, `DECREASED`, `UNCHANGED`).
+
+### `POST /api/v1/finance/recurring`
+* Creates recurring subscription or scheduled financial obligation.
+* **Request Body**:
+  ```json
+  {
+    "title": "Cloud Streaming Service",
+    "amount": 19.99,
+    "transactionType": "EXPENSE",
+    "category": "ENTERTAINMENT",
+    "paymentMethod": "CREDIT_CARD",
+    "recurrencePattern": "MONTHLY",
+    "billingDay": 10,
+    "startDate": "2026-01-01",
+    "autoCreateTransaction": true,
+    "notes": "Subscription"
+  }
+  ```
+* **Response `201 Created`**: `RecurringResponse`.
+
+### `GET /api/v1/finance/recurring`
+* Lists all recurring rules for authenticated user.
+
+### `GET /api/v1/finance/recurring/{id}`, `PUT /api/v1/finance/recurring/{id}`, `DELETE /api/v1/finance/recurring/{id}`
+* Manage individual recurring rules with strict tenant isolation (returns 404 for cross-tenant access).
+
+### `POST /api/v1/budgets`
+* Creates or updates monthly category budget with configurable alert thresholds.
+* **Request Body**:
+  ```json
+  {
+    "category": "FOOD_DINING",
+    "budgetMonth": 9,
+    "budgetYear": 2026,
+    "allocatedAmount": 800.00,
+    "alertThresholds": [50, 75, 90, 100]
+  }
+  ```
+* **Response `201 Created`**: `BudgetResponse`.
+
+### `GET /api/v1/budgets`
+* Lists category budgets for specified month and year (`?month=9&year=2026`).
+
+### `GET /api/v1/budgets/{id}`, `PUT /api/v1/budgets/{id}`, `DELETE /api/v1/budgets/{id}`
+* Manage individual budget allocations with strict tenant isolation (returns 404 for cross-tenant access).
+
 ### `GET /api/v1/budgets/status`
+* Deterministic calculation of budget vs actuals, remaining balance, utilization %, in-flight run-rate projected spend, and threshold evaluation.
 * **Query Params**: `?month=9&year=2026`
 * **Response `200 OK`**:
   ```json
   {
-    "budgets": [
-      {
-        "category": "FOOD",
-        "allocated": 15000.00,
-        "spent": 12000.00,
-        "remaining": 3000.00,
-        "percentageUsed": 80.00,
-        "isAlertTriggered": true,
-        "alertThreshold": 75.00
-      }
-    ]
+    "success": true,
+    "data": {
+      "month": 9,
+      "year": 2026,
+      "totalAllocated": 800.00,
+      "totalSpent": 450.00,
+      "totalRemaining": 350.00,
+      "overallUtilizationPercentage": 56.25,
+      "categories": [
+        {
+          "budgetId": "e12107e0-efa3-4eae-9cdc-4292ffec684c",
+          "category": "FOOD_DINING",
+          "allocatedAmount": 800.00,
+          "actualSpent": 450.00,
+          "remainingAmount": 350.00,
+          "utilizationPercentage": 56.25,
+          "projectedSpend": 710.53,
+          "isOverBudget": false,
+          "highestTriggeredThreshold": 50
+        }
+      ]
+    }
   }
   ```
 

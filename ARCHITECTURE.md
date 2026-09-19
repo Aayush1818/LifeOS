@@ -110,17 +110,20 @@ com.lifeos
 │   ├── dto                     # UploadDocumentRequest, DocumentResponse, DocumentDetailResponse
 │   └── entity                  # DocumentEntity, DocumentCategory, DocumentType, IngestionStatus
 │
-├── finance                     # Income, Expenses & Recurring Transactions
-│   ├── controller              # FinanceController (/api/v1/finance)
-│   ├── service                 # TransactionService, FinanceAnalyticsService (JDBC)
-│   ├── repository              # TransactionRepository, TransactionJdbcRepository
-│   └── entity                  # TransactionEntity, CategoryEntity
+├── finance                     # Income, Expenses, Subscriptions & Analytics
+│   ├── controller              # TransactionController, RecurringTransactionController, FinanceAnalyticsController
+│   ├── service                 # TransactionService, RecurringTransactionService, FinanceAnalyticsService
+│   ├── repository              # TransactionRepository, RecurringTransactionRepository, FinanceAnalyticsJdbcRepository
+│   ├── dto                     # Transaction & Recurring DTOs, MonthlySummaryResponse, MoM Analytics
+│   └── entity                  # TransactionEntity, RecurringTransactionEntity, Enums (Categories, Methods)
 │
-├── budget                      # Monthly Budgets & Threshold Alerts
+├── budget                      # Monthly Budgets, Run-Rate Projections & Threshold Alerts
 │   ├── controller              # BudgetController (/api/v1/budgets)
-│   ├── service                 # BudgetService, BudgetAlertService
+│   ├── service                 # BudgetService (Deterministic tracking, alerts, in-flight projections)
 │   ├── repository              # BudgetRepository
-│   └── entity                  # BudgetEntity, BudgetAlertEntity
+│   ├── event                   # BudgetThresholdReachedEvent (Decoupled Spring Application Event)
+│   ├── dto                     # Create/UpdateBudgetRequest, BudgetResponse, BudgetStatusResponse
+│   └── entity                  # BudgetEntity (JSONB alert_thresholds)
 │
 ├── loan                        # Loans, EMIs & Amortization
 │   ├── controller              # LoanController (/api/v1/loans)

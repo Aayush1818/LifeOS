@@ -173,16 +173,40 @@ erDiagram
         timestamp created_at
     }
 
+    RECURRING_TRANSACTIONS {
+        uuid id PK
+        uuid user_id FK
+        varchar title
+        numeric amount
+        varchar transaction_type
+        varchar category
+        varchar payment_method
+        varchar recurrence_pattern
+        int billing_day
+        date start_date
+        date end_date
+        date next_due_date
+        varchar status
+        boolean auto_create_transaction
+        boolean is_deleted
+        timestamp created_at
+    }
+
     TRANSACTIONS {
         uuid id PK
         uuid user_id FK
+        uuid document_id FK
+        uuid recurring_id FK
         numeric amount
         varchar transaction_type
         varchar category
         date transaction_date
         varchar payment_method
         varchar description
+        varchar status
         boolean is_recurring
+        boolean is_refund
+        boolean is_deleted
         timestamp created_at
     }
 
@@ -193,7 +217,8 @@ erDiagram
         int budget_month
         int budget_year
         numeric allocated_amount
-        numeric alert_threshold_percentage
+        jsonb alert_thresholds
+        boolean is_deleted
         timestamp created_at
     }
 
@@ -477,24 +502,57 @@ CREATE TABLE trip_expenses (
 CREATE INDEX idx_trip_expenses_trip ON trip_expenses(trip_id);
 
 -- ============================================================================
--- 8. PERSONAL FINANCE & MONTHLY BUDGETS
+-- 8. PERSONAL FINANCE & MONTHLY BUDGETS (Enhanced in Phase 5 / V3)
 -- ============================================================================
+CREATE TABLE recurring_transactions (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(200) NOT NULL,
+    amount NUMERIC(14,2) NOT NULL,
+    transaction_type VARCHAR(20) NOT NULL, -- INCOME, EXPENSE
+    category VARCHAR(50) NOT NULL,
+    payment_method VARCHAR(50) NOT NULL,
+    recurrence_pattern VARCHAR(30) NOT NULL, -- DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY
+    billing_day INT NOT NULL CHECK (billing_day BETWEEN 1 AND 31),
+    start_date DATE NOT NULL,
+    end_date DATE,
+    next_due_date DATE NOT NULL,
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE', -- ACTIVE, PAUSED, COMPLETED
+    auto_create_transaction BOOLEAN NOT NULL DEFAULT FALSE,
+    notes TEXT,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_recurring_user ON recurring_transactions(user_id) WHERE NOT is_deleted;
+CREATE INDEX idx_recurring_next_due ON recurring_transactions(next_due_date) WHERE status = 'ACTIVE' AND NOT is_deleted;
+
 CREATE TABLE transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    amount NUMERIC(12,2) NOT NULL,
+    amount NUMERIC(14,2) NOT NULL,
     transaction_type VARCHAR(20) NOT NULL, -- INCOME, EXPENSE
-    category VARCHAR(50) NOT NULL, -- RENT, FOOD, TRAVEL, SHOPPING, EDUCATION, HEALTH, BILLS, EMI, INSURANCE, OTHER
+    category VARCHAR(50) NOT NULL,
     transaction_date DATE NOT NULL,
-    payment_method VARCHAR(50) NOT NULL, -- CREDIT_CARD, DEBIT_CARD, UPI, CASH, NET_BANKING
+    payment_method VARCHAR(50) NOT NULL,
     description VARCHAR(255) NOT NULL,
+    notes TEXT,
+    status VARCHAR(30) NOT NULL DEFAULT 'POSTED', -- PENDING, POSTED, CANCELLED
+    document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
+    recurring_id UUID REFERENCES recurring_transactions(id) ON DELETE SET NULL,
     is_recurring BOOLEAN NOT NULL DEFAULT FALSE,
+    is_refund BOOLEAN NOT NULL DEFAULT FALSE,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_transactions_user_date ON transactions(user_id, transaction_date) WHERE NOT is_deleted;
 CREATE INDEX idx_transactions_category ON transactions(user_id, category) WHERE NOT is_deleted;
+CREATE INDEX idx_transactions_user_date_type ON transactions(user_id, transaction_date, transaction_type) WHERE NOT is_deleted;
+CREATE INDEX idx_transactions_user_cat_date ON transactions(user_id, category, transaction_date) WHERE NOT is_deleted;
+CREATE INDEX idx_transactions_dup_check ON transactions(user_id, amount, category, transaction_date) WHERE NOT is_deleted;
 
 CREATE TABLE budgets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -502,11 +560,15 @@ CREATE TABLE budgets (
     category VARCHAR(50) NOT NULL,
     budget_month INT NOT NULL CHECK (budget_month BETWEEN 1 AND 12),
     budget_year INT NOT NULL CHECK (budget_year >= 2020),
-    allocated_amount NUMERIC(12,2) NOT NULL,
-    alert_threshold_percentage NUMERIC(5,2) NOT NULL DEFAULT 80.00,
+    allocated_amount NUMERIC(14,2) NOT NULL,
+    alert_thresholds JSONB NOT NULL DEFAULT '[50, 75, 90, 100]'::jsonb,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT uq_user_cat_month_year UNIQUE (user_id, category, budget_month, budget_year)
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_budgets_user_cat_month_year UNIQUE (user_id, category, budget_month, budget_year)
 );
+
+CREATE INDEX idx_budgets_user_period ON budgets(user_id, budget_year, budget_month) WHERE NOT is_deleted;
 
 -- ============================================================================
 -- 9. AUTOMATION & REMINDERS

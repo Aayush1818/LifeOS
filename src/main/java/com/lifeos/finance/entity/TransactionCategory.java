@@ -1,0 +1,20 @@
+package com.lifeos.finance.entity;
+
+public enum TransactionCategory {
+    HOUSING,
+    FOOD_DINING,
+    UTILITIES,
+    TRANSPORTATION,
+    HEALTHCARE,
+    ENTERTAINMENT,
+    SHOPPING,
+    FINANCIAL_OBLIGATIONS,
+    PERSONAL_CARE,
+    EDUCATION,
+    TRAVEL,
+    INCOME_SALARY,
+    INCOME_INVESTMENT,
+    INCOME_FREELANCE,
+    INCOME_OTHER,
+    OTHER
+}
