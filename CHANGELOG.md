@@ -4,6 +4,32 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0-alpha] - 2026-09-19
+### Added
+* **Phase 3: Security, Authentication, Users & Dependent Management**
+  * Integrated `spring-boot-starter-security` and `io.jsonwebtoken:jjwt:0.12.6` with Spring Security 6 stateless filter chain.
+  * Implemented BCrypt password hashing (strength 12) and password complexity validation (`@ValidPassword`: min 8 chars, 1 uppercase, 1 lowercase, 1 digit, 1 special character).
+  * Dual-token security architecture:
+    * Short-lived HMAC-SHA512 signed JWT Access Tokens (15-minute TTL) containing user ID, email, role, and claims.
+    * Cryptographically secure 64-character hex Refresh Tokens (7-day TTL) stored exclusively as SHA-256 hashes in PostgreSQL `refresh_tokens` table.
+    * Refresh Token Rotation with automatic revocation of consumed tokens and immediate invalidation on reuse detection.
+  * Role-Based Access Control (RBAC): `ROLE_USER` and `ROLE_ADMIN` with Spring Security `GrantedAuthority` mapping.
+  * Resource-Level Authorization:
+    * Strict tenant isolation where all queries and mutations are scoped to `userId = SecurityUtils.getCurrentUserId()`.
+    * Zero cross-tenant leakage: cross-tenant access attempts return RFC 7807 `404 Not Found` rather than `403 Forbidden`, preventing resource ID enumeration.
+  * User profile management:
+    * `GET /api/v1/users/me` — fetch authenticated user profile.
+    * `PUT /api/v1/users/me` — update profile name, phone number, and timezone.
+  * Family member & dependent management:
+    * `POST /api/v1/dependents` — create dependent with relationship type (`SPOUSE`, `CHILD`, `PARENT`, `SIBLING`, `OTHER`) and JSONB `preferences` & `medicalNotes`.
+    * `GET /api/v1/dependents` — list authenticated user's active dependents.
+    * `GET /api/v1/dependents/{id}` — fetch single dependent with strict owner validation.
+    * `PUT /api/v1/dependents/{id}` — update dependent metadata and JSONB attributes.
+    * `DELETE /api/v1/dependents/{id}` — soft-delete dependent.
+  * Standardized RFC 7807 problem details error handling for 401 Unauthorized (`CustomAuthenticationEntryPoint`) and 403 Forbidden (`CustomAccessDeniedHandler`).
+  * Comprehensive test suite: 16 automated integration tests passing (`AuthControllerTest`, `UserControllerTest`, `DependentControllerTest`, `FlywayMigrationTest`, `HealthControllerTest`, `LifeOSApplicationTests`).
+  * 13-step live HTTP verification passed over Tomcat 8080 against live PostgreSQL 18.
+
 ---
 
 ## [0.2.0-alpha] - 2026-09-19

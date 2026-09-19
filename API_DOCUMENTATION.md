@@ -89,11 +89,123 @@
   *(Refresh token is simultaneously set in an `HttpOnly`, `SameSite=Strict`, `Secure` cookie)*.
 
 ### `POST /api/v1/auth/refresh`
-* Rotates the refresh token and returns a new access token.
+* **Request Body**:
+  ```json
+  {
+    "refreshToken": "4f2a9c7b1e8d..."
+  }
+  ```
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "accessToken": "eyJhbGciOiJIUzUxMiJ9...",
+      "tokenType": "Bearer",
+      "expiresIn": 900,
+      "refreshToken": "9a8b7c6d5e...",
+      "user": { ... }
+    }
+  }
+  ```
+
+### `POST /api/v1/auth/logout`
+* Revokes the specified refresh token or all active refresh tokens for the authenticated user.
+* **Headers**: `Authorization: Bearer <access_token>` (optional if passing body)
+* **Request Body (optional)**:
+  ```json
+  {
+    "refreshToken": "4f2a9c7b1e8d..."
+  }
+  ```
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Logout successful"
+  }
+  ```
 
 ---
 
-## 3. Document Management (`/api/v1/documents`)
+## 3. User Profile Management (`/api/v1/users/me`)
+
+### `GET /api/v1/users/me`
+* Retrieves authenticated user's profile.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "e7c11f4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+      "email": "user@example.com",
+      "firstName": "Alex",
+      "lastName": "Morgan",
+      "phone": "+1234567890",
+      "timezone": "UTC",
+      "role": "ROLE_USER",
+      "isActive": true
+    }
+  }
+  ```
+
+### `PUT /api/v1/users/me`
+* Updates profile information.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Request Body**:
+  ```json
+  {
+    "firstName": "Alexander",
+    "lastName": "Morgan",
+    "phone": "+1234567899",
+    "timezone": "America/New_York"
+  }
+  ```
+* **Response `200 OK`** with updated `UserResponse`.
+
+---
+
+## 4. Dependent / Family Management (`/api/v1/dependents`)
+
+*Strictly isolated per authenticated user.*
+
+### `POST /api/v1/dependents`
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Request Body**:
+  ```json
+  {
+    "fullName": "Jane Doe",
+    "relationship": "SPOUSE",
+    "dateOfBirth": "1992-04-12",
+    "isEmergencyContact": true,
+    "emergencyContactPhone": "+1987654321",
+    "preferences": { "dietary": "Vegetarian" },
+    "medicalNotes": { "bloodGroup": "O+", "allergies": "Penicillin" }
+  }
+  ```
+* **Response `201 Created`**: Returns created `DependentResponse`.
+
+### `GET /api/v1/dependents`
+* Lists all active family members and dependents belonging to the current user.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**: Array of `DependentResponse`.
+
+### `GET /api/v1/dependents/{id}`
+* Fetches single dependent by UUID.
+* **Security Enforcement**: Returns `404 Not Found` if dependent belongs to another user or does not exist.
+
+### `PUT /api/v1/dependents/{id}`
+* Updates dependent metadata and JSONB notes.
+* **Security Enforcement**: Returns `404 Not Found` if dependent belongs to another user.
+
+### `DELETE /api/v1/dependents/{id}`
+* Soft-deletes dependent (`is_deleted = true`).
+* **Security Enforcement**: Returns `404 Not Found` if dependent belongs to another user.
+
+---
+
+## 5. Document Management (`/api/v1/documents`)
 
 ### `POST /api/v1/documents/upload`
 * **Content-Type**: `multipart/form-data`

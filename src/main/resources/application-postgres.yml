@@ -14,7 +14,6 @@ spring:
       connection-test-query: SELECT 1
 
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
       ddl-auto: validate
     open-in-view: false
