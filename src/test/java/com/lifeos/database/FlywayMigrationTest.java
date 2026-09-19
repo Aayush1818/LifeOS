@@ -60,4 +60,38 @@ class FlywayMigrationTest {
                 "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_chunks_tsv');", Boolean.class);
         assertThat(tsvIndexExists).isTrue();
     }
+
+    @Test
+    void v9DocumentChunkEnhancementsShouldBePresent() {
+        List<String> chunkColumns = jdbcTemplate.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'document_chunks';",
+                String.class
+        );
+        assertThat(chunkColumns).contains(
+                "document_version",
+                "section_title",
+                "token_count",
+                "char_count",
+                "is_active",
+                "embedding_model"
+        );
+
+        List<String> docColumns = jdbcTemplate.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'documents';",
+                String.class
+        );
+        assertThat(docColumns).contains(
+                "chunk_count",
+                "ingested_at",
+                "embedding_model"
+        );
+
+        Boolean activeUserIndexExists = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_chunks_active_user');", Boolean.class);
+        assertThat(activeUserIndexExists).isTrue();
+
+        Boolean docVerIndexExists = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_chunks_doc_ver');", Boolean.class);
+        assertThat(docVerIndexExists).isTrue();
+    }
 }

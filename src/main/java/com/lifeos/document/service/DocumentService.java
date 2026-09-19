@@ -5,7 +5,9 @@ import com.lifeos.common.exception.InvalidDocumentException;
 import com.lifeos.common.exception.ResourceNotFoundException;
 import com.lifeos.dependent.entity.DependentEntity;
 import com.lifeos.dependent.repository.DependentRepository;
+import com.lifeos.document.dto.DocumentChunkResponse;
 import com.lifeos.document.dto.DocumentDetailResponse;
+import com.lifeos.document.dto.DocumentIngestionStatusResponse;
 import com.lifeos.document.dto.DocumentResponse;
 import com.lifeos.document.dto.UploadDocumentRequest;
 import com.lifeos.document.entity.DocumentCategory;
@@ -14,6 +16,7 @@ import com.lifeos.document.entity.IngestionStatus;
 import com.lifeos.document.extractor.DocumentTextExtractor;
 import com.lifeos.document.extractor.ExtractionResult;
 import com.lifeos.document.repository.DocumentRepository;
+import com.lifeos.document.repository.JdbcDocumentChunkRepository;
 import com.lifeos.document.storage.DocumentStorageService;
 import com.lifeos.document.storage.LocalStorageService;
 import com.lifeos.user.entity.UserEntity;
@@ -41,6 +44,8 @@ public class DocumentService {
     private final DependentRepository dependentRepository;
     private final DocumentStorageService documentStorageService;
     private final DocumentTextExtractor documentTextExtractor;
+    private final DocumentIngestionService documentIngestionService;
+    private final JdbcDocumentChunkRepository jdbcDocumentChunkRepository;
     private final long maxFileSizeBytes;
     private final Set<String> allowedMimeTypes;
 
@@ -50,6 +55,8 @@ public class DocumentService {
             DependentRepository dependentRepository,
             DocumentStorageService documentStorageService,
             DocumentTextExtractor documentTextExtractor,
+            DocumentIngestionService documentIngestionService,
+            JdbcDocumentChunkRepository jdbcDocumentChunkRepository,
             com.lifeos.document.storage.StorageProperties storageProperties
     ) {
         this.documentRepository = documentRepository;
@@ -57,6 +64,8 @@ public class DocumentService {
         this.dependentRepository = dependentRepository;
         this.documentStorageService = documentStorageService;
         this.documentTextExtractor = documentTextExtractor;
+        this.documentIngestionService = documentIngestionService;
+        this.jdbcDocumentChunkRepository = jdbcDocumentChunkRepository;
         this.maxFileSizeBytes = storageProperties.getMaxFileSizeBytes();
         this.allowedMimeTypes = new HashSet<>(storageProperties.getAllowedMimeTypes());
     }
@@ -121,7 +130,15 @@ public class DocumentService {
                     .build();
 
             DocumentEntity saved = documentRepository.save(document);
-            log.info("User [{}] uploaded document [{}] version 1 (status: {})", userId, saved.getId(), status);
+            if (status == IngestionStatus.PROCESSED) {
+                try {
+                    documentIngestionService.ingestDocument(saved.getId(), userId);
+                    saved = documentRepository.findById(saved.getId()).orElse(saved);
+                } catch (Exception e) {
+                    log.warn("Ingestion pipeline error for document [{}]: {}", saved.getId(), e.getMessage());
+                }
+            }
+            log.info("User [{}] uploaded document [{}] version 1 (status: {})", userId, saved.getId(), saved.getIngestionStatus());
             return DocumentResponse.fromEntity(saved);
         } catch (Exception e) {
             log.error("Database persistence failed for document; executing storage compensation cleanup for [{}]", storagePath);
@@ -174,6 +191,14 @@ public class DocumentService {
         document.setExtractionError(extraction.getErrorMessage());
 
         DocumentEntity updated = documentRepository.save(document);
+        if (status == IngestionStatus.PROCESSED) {
+            try {
+                documentIngestionService.ingestDocument(updated.getId(), userId);
+                updated = documentRepository.findById(updated.getId()).orElse(updated);
+            } catch (Exception e) {
+                log.warn("Ingestion pipeline error for new version of document [{}]: {}", updated.getId(), e.getMessage());
+            }
+        }
         log.info("User [{}] uploaded new version [{}] for document [{}]", userId, updated.getVersion(), documentId);
         return DocumentResponse.fromEntity(updated);
     }
@@ -220,12 +245,34 @@ public class DocumentService {
         documentRepository.save(document);
         log.info("User [{}] soft-deleted document [{}] in database", userId, id);
 
-        // 2. Purge physical storage (fault-tolerant)
+        // 2. Purge chunks from vector store (fault-tolerant)
+        try {
+            jdbcDocumentChunkRepository.deleteAllChunksByDocument(id);
+        } catch (Exception e) {
+            log.warn("Chunk deletion warning for document [{}]: {}", id, e.getMessage());
+        }
+
+        // 3. Purge physical storage (fault-tolerant)
         try {
             documentStorageService.delete(document.getStoragePath(), userId);
         } catch (Exception e) {
             log.warn("Storage deletion warning for document [{}]: {}", id, e.getMessage());
         }
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentIngestionStatusResponse getIngestionStatus(UUID id, UUID userId) {
+        return documentIngestionService.getIngestionStatus(id, userId);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<DocumentChunkResponse> listChunks(UUID id, UUID userId, Pageable pageable) {
+        return documentIngestionService.listChunks(id, userId, pageable);
+    }
+
+    @Transactional
+    public DocumentResponse reprocessDocument(UUID id, UUID userId, boolean force) {
+        return documentIngestionService.reprocessDocument(id, userId, force);
     }
 
     private void validateFile(MultipartFile file) {

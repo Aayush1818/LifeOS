@@ -179,7 +179,15 @@ LifeOS Architecture
 * **Faceted Navigation & Quick Typeahead**: Faceted count breakdowns (`/api/v1/search/count`) for multi-tab UI displays and rapid autocomplete suggestions (`/api/v1/search/suggest`).
 * **Multi-Tenant Scoping**: All search operations strictly scoped to `userId = SecurityUtils.getCurrentUserId()`. Unauthorized dependent references trigger RFC 7807 `404 Not Found`.
 
-### I. Automated Reminders & Notifications
+### I. Document Intelligence & RAG Ingestion Foundation (Phase 11 Implemented)
+* **Layout-Aware Semantic Chunking**: Deterministic sliding window chunker (500-token window, 100-token overlap) respecting physical page breaks, headings, paragraph boundaries, and sentence integrity via Java `BreakIterator`.
+* **Context & Provenance Enrichment**: Automatic injection of hierarchical breadcrumbs (`[Document: ... | Section: ... | Page: ...]`) into every chunk, enabling precise citation pills in Phase 12.
+* **Provider-Agnostic Embedding Architecture**: Decoupled `EmbeddingProvider` SPI supporting OpenAI `text-embedding-3-small`, local Ollama instances, and deterministic unit-normalized mock providers for test suites.
+* **pgvector Dense Vector Storage & Indexing**: Persists 1536-dimensional embeddings with HNSW cosine distance indexes (`vector_cosine_ops`), per-chunk `tsvector` GIN indexes, and composite tenant indexes.
+* **Version Invalidation & Idempotency**: Atomic activation and deactivation across document versions (`is_active` flag) preserving historical citations in `message_citations` while preventing outdated chunks from surfacing in vector searches.
+* **Granular Ingestion Lifecycle & Diagnostic APIs**: Asynchronous processing with bounded thread pool (`documentIngestionExecutor`), explicit error tracking (`EXTRACTION_FAILED`, `EMBEDDING_FAILED`), `/ingestion-status`, `/reprocess`, and chunk inspector `/chunks`.
+
+### J. Automated Reminders & Notifications
 * Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
 
 ---

@@ -28,6 +28,7 @@ public class DocumentResponse {
     private DocumentCategory category;
     private DocumentType documentType;
     private Integer version;
+    private Integer chunkCount;
     private LocalDate issueDate;
     private LocalDate expiryDate;
     private List<String> tags;
@@ -48,6 +49,7 @@ public class DocumentResponse {
                 .category(entity.getCategory())
                 .documentType(entity.getDocumentType())
                 .version(entity.getVersion())
+                .chunkCount(entity.getChunkCount() != null ? entity.getChunkCount() : 0)
                 .issueDate(entity.getIssueDate())
                 .expiryDate(entity.getExpiryDate())
                 .tags(entity.getTags())

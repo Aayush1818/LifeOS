@@ -2,8 +2,11 @@ package com.lifeos.document.controller;
 
 import com.lifeos.common.dto.ApiResponse;
 import com.lifeos.common.security.SecurityUtils;
+import com.lifeos.document.dto.DocumentChunkResponse;
 import com.lifeos.document.dto.DocumentDetailResponse;
+import com.lifeos.document.dto.DocumentIngestionStatusResponse;
 import com.lifeos.document.dto.DocumentResponse;
+import com.lifeos.document.dto.ReprocessDocumentRequest;
 import com.lifeos.document.dto.UploadDocumentRequest;
 import com.lifeos.document.entity.DocumentCategory;
 import com.lifeos.document.service.DocumentService;
@@ -108,5 +111,34 @@ public class DocumentController {
         UUID currentUserId = SecurityUtils.getCurrentUserId();
         documentService.deleteDocument(id, currentUserId);
         return ResponseEntity.ok(ApiResponse.success(null, "Document deleted successfully"));
+    }
+
+    @GetMapping("/{id}/ingestion-status")
+    @Operation(summary = "Get document ingestion and vector status", description = "Retrieves RAG ingestion lifecycle state, chunk counts, and embedding metadata.")
+    public ResponseEntity<ApiResponse<DocumentIngestionStatusResponse>> getIngestionStatus(@PathVariable UUID id) {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        DocumentIngestionStatusResponse response = documentService.getIngestionStatus(id, currentUserId);
+        return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping("/{id}/reprocess")
+    @Operation(summary = "Manually trigger document re-ingestion", description = "Re-runs text extraction, chunking, and embedding generation.")
+    public ResponseEntity<ApiResponse<DocumentResponse>> reprocessDocument(
+            @PathVariable UUID id,
+            @RequestBody(required = false) ReprocessDocumentRequest request) {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        boolean force = request != null && request.isForce();
+        DocumentResponse response = documentService.reprocessDocument(id, currentUserId, force);
+        return ResponseEntity.accepted().body(ApiResponse.success(response, "Document re-ingestion initiated"));
+    }
+
+    @GetMapping("/{id}/chunks")
+    @Operation(summary = "List document chunks", description = "Retrieves paginated layout-aware chunks with page numbers and section breadcrumbs for citations.")
+    public ResponseEntity<ApiResponse<Page<DocumentChunkResponse>>> listChunks(
+            @PathVariable UUID id,
+            @PageableDefault(size = 20, sort = "chunkIndex") Pageable pageable) {
+        UUID currentUserId = SecurityUtils.getCurrentUserId();
+        Page<DocumentChunkResponse> response = documentService.listChunks(id, currentUserId, pageable);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 }

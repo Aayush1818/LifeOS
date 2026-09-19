@@ -94,11 +94,31 @@ public class TikaDocumentTextExtractor implements DocumentTextExtractor {
                 creationDate = created.toInstant().atOffset(ZoneOffset.UTC);
             }
 
-            String text = handler.toString().trim();
-            log.info("Extracted {} characters and {} metadata attributes from [{}]",
-                    text.length(), extractedMetadata.size(), originalFilename);
+            String rawText = handler.toString();
+            String text = rawText.replace("\u0000", "").trim();
 
-            return ExtractionResult.success(detectedMimeType, text, pageCount, title, author, creationDate, extractedMetadata);
+            java.util.List<PageContent> pages = new java.util.ArrayList<>();
+            if (text.contains("\f")) {
+                String[] pageSplits = text.split("\f");
+                int pageNum = 1;
+                for (String split : pageSplits) {
+                    String cleanPage = split.trim();
+                    if (!cleanPage.isEmpty() || pageSplits.length == 1) {
+                        pages.add(new PageContent(pageNum, cleanPage));
+                        pageNum++;
+                    }
+                }
+            }
+            if (pages.isEmpty() && !text.isEmpty()) {
+                pages.add(new PageContent(1, text));
+            }
+
+            int finalPageCount = pageCount != null ? Math.max(pageCount, pages.size()) : Math.max(1, pages.size());
+
+            log.info("Extracted {} characters across {} pages and {} metadata attributes from [{}]",
+                    text.length(), pages.size(), extractedMetadata.size(), originalFilename);
+
+            return ExtractionResult.success(detectedMimeType, text, finalPageCount, title, author, creationDate, extractedMetadata, pages);
         } catch (Throwable t) {
             // Gracefully catch parser, encryption, and corruption exceptions
             log.warn("Text extraction encountered non-fatal failure for [{}]: {}", originalFilename, t.getMessage());

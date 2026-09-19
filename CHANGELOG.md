@@ -4,6 +4,43 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0-alpha] - 2026-09-19
+### Added
+* **Phase 11: Document Intelligence & RAG Ingestion Foundation**
+  * Flyway migration `V9__document_chunks_enhancements.sql`:
+    * Enhanced `document_chunks` table with `document_version`, `section_title`, `token_count`, `char_count`, `is_active`, `embedding_model`, and `updated_at`.
+    * Added unique constraint `uq_document_chunks_doc_ver_idx` on `(document_id, document_version, chunk_index)` guaranteeing idempotent chunk writes.
+    * Created index `idx_chunks_active_user` on `(user_id, is_active)` for efficient tenant and active version filtering.
+    * Created index `idx_chunks_doc_ver` on `(document_id, document_version)`.
+    * Enhanced `documents` table with `chunk_count`, `ingested_at`, and `embedding_model`.
+  * Layout-Aware Document Chunker (`DocumentChunker`):
+    * Deterministic sliding window chunker with 500-token target window and 100-token overlap.
+    * Structural boundary preservation: prioritizes page breaks, section headings (`SECTION`, `ARTICLE`, Markdown `#`), paragraphs, and sentences via Java `BreakIterator`.
+    * Context enrichment: injects document filename, section title, and page number breadcrumbs into every chunk.
+    * Deterministic UUID v5 generation per chunk preventing duplicate identifiers.
+  * Provider-Agnostic Embedding SPI (`EmbeddingProvider`):
+    * Extensible interface decoupling domain logic from AI embedding providers.
+    * `MockEmbeddingProvider`: deterministic unit-normalized 1536-dimensional vector generator using SHA-256 seed hashing for offline testing and CI/CD.
+    * `OpenAiEmbeddingProvider`: production-grade REST adapter for OpenAI `text-embedding-3-small` with batched requests (100 texts/call) and exponential backoff retry on 429/503.
+    * `EmbeddingProperties`: configuration properties for provider selection, dimensions, base URL, and timeout.
+  * Ingestion Orchestration & Asynchronous Processing (`DocumentIngestionService`):
+    * Asynchronous worker using bounded `ThreadPoolTaskExecutor` (`documentIngestionExecutor`, 4 core / 8 max threads / 100 queue capacity, `CallerRunsPolicy`).
+    * End-to-end pipeline: file loading $\rightarrow$ structured text extraction $\rightarrow$ sliding window chunking $\rightarrow$ embedding generation $\rightarrow$ atomic vector persistence.
+    * Explicit lifecycle management: `PENDING` / `STORED` $\rightarrow$ `PROCESSING` $\rightarrow$ `PROCESSED` / `EXTRACTION_FAILED` / `EMBEDDING_FAILED`.
+    * Version activation & deactivation: uploading version $V+1$ automatically marks version $V$ chunks `is_active = false` without breaking historical `message_citations` references.
+  * REST API Endpoints (`DocumentController`):
+    * `GET /api/v1/documents/{id}/ingestion-status`: Retrieves RAG ingestion state, chunk counts, page counts, and model metadata.
+    * `POST /api/v1/documents/{id}/reprocess`: Manually triggers full re-ingestion with optional force flag.
+    * `GET /api/v1/documents/{id}/chunks`: Retrieves paginated layout-aware chunks with section breadcrumbs and page numbers.
+  * Security & Tenant Isolation:
+    * All chunk queries and vector searches enforce `user_id = SecurityUtils.getCurrentUserId()` and `is_active = true`.
+    * Cross-tenant access to ingestion status or chunks strictly returns RFC 7807 `404 Not Found`.
+  * Verification:
+    * 14 new automated tests bringing full test suite to **133 / 133 tests passed** (0 failures, 0 errors, 0 skipped).
+    * **25 / 25 live HTTP checks passed** in `scratch/verify_phase11.ps1` against Tomcat 8080 and PostgreSQL 18.
+
+---
+
 ## [0.10.0-alpha] - 2026-09-19
 ### Added
 * **Phase 10: Unified Search & Advanced Query Platform**

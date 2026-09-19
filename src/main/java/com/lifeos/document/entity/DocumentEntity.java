@@ -9,6 +9,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -87,4 +88,14 @@ public class DocumentEntity extends BaseEntity {
 
     @Column(name = "extraction_error", columnDefinition = "text")
     private String extractionError;
+
+    @Column(name = "chunk_count")
+    @Builder.Default
+    private Integer chunkCount = 0;
+
+    @Column(name = "ingested_at")
+    private OffsetDateTime ingestedAt;
+
+    @Column(name = "embedding_model", length = 100)
+    private String embeddingModel;
 }

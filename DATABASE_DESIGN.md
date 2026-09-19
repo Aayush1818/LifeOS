@@ -362,14 +362,24 @@ CREATE TABLE document_chunks (
     embedding vector(1536),
     tsv_content TSVECTOR GENERATED ALWAYS AS (to_tsvector('english', content)) STORED,
     page_number INT NOT NULL DEFAULT 1,
+    document_version INT NOT NULL DEFAULT 1,
+    section_title VARCHAR(255),
+    token_count INT,
+    char_count INT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    embedding_model VARCHAR(100) DEFAULT 'text-embedding-3-small',
     metadata JSONB DEFAULT '{}'::jsonb,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_document_chunks_doc_ver_idx UNIQUE (document_id, document_version, chunk_index)
 );
 
--- Hybrid Search Indexes: HNSW for dense vector, GIN for sparse lexical
+-- Hybrid Search Indexes: HNSW for dense vector, GIN for sparse lexical, B-Tree for tenant and version filtering
 CREATE INDEX idx_chunks_hnsw ON document_chunks USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX idx_chunks_tsv ON document_chunks USING gin (tsv_content);
 CREATE INDEX idx_chunks_user_doc ON document_chunks(user_id, document_id);
+CREATE INDEX idx_chunks_active_user ON document_chunks(user_id, is_active) WHERE is_active;
+CREATE INDEX idx_chunks_doc_ver ON document_chunks(document_id, document_version);
 
 CREATE TABLE document_entity_links (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

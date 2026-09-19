@@ -323,10 +323,69 @@
 * **Response `200 OK`**: Binary stream with headers:
   * `Content-Type: <mimeType>`
   * `Content-Length: <fileSize>`
-  * `Content-Disposition: attachment; filename="<originalFilename>"`
+### `GET /api/v1/documents/{id}/ingestion-status`
+* Retrieves RAG ingestion lifecycle state, chunk counts, page counts, and embedding model metadata.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Security**: Returns `404 Not Found` if document does not belong to requesting user.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "documentId": "cb50eac7-547d-4dd8-b3e0-31c0fc4b39b9",
+      "ingestionStatus": "PROCESSED",
+      "version": 1,
+      "chunkCount": 8,
+      "pageCount": 3,
+      "embeddingModel": "text-embedding-3-small",
+      "ingestedAt": "2026-09-19T22:45:10Z",
+      "extractionError": null
+    }
+  }
+  ```
+
+### `POST /api/v1/documents/{id}/reprocess`
+* Manually triggers full re-ingestion (text extraction, chunking, and embedding generation).
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Request Body** (Optional):
+  ```json
+  {
+    "force": true
+  }
+  ```
+* **Security**: Returns `404 Not Found` if document does not belong to requesting user.
+* **Response `202 Accepted`**: Returns updated `DocumentResponse` with status `PROCESSING`.
+
+### `GET /api/v1/documents/{id}/chunks`
+* Retrieves paginated layout-aware chunks with page numbers and section breadcrumbs for citations. Vector embeddings are omitted from JSON payload to prevent payload bloat.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Query Parameters**: `page=0&size=20`
+* **Security**: Returns `404 Not Found` if document does not belong to requesting user.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "content": [
+        {
+          "id": "e7c11f4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "chunkIndex": 0,
+          "pageNumber": 1,
+          "sectionTitle": "Section 1: Coverage Summary",
+          "content": "[Document: Policy.pdf | Section: Coverage Summary | Page: 1]\nCoverage applies worldwide...",
+          "tokenCount": 380,
+          "charCount": 1520,
+          "isActive": true
+        }
+      ],
+      "totalElements": 8,
+      "totalPages": 1
+    }
+  }
+  ```
 
 ### `DELETE /api/v1/documents/{id}`
-* Soft-deletes the database record (`is_deleted = true`, status = `DELETED`) and purges physical file.
+* Soft-deletes the database record (`is_deleted = true`, status = `DELETED`), purges physical file, and evicts all chunks from `document_chunks`.
 * **Headers**: `Authorization: Bearer <access_jwt>`
 * **Security**: Returns `404 Not Found` if document does not belong to requesting user.
 * **Response `200 OK`**:

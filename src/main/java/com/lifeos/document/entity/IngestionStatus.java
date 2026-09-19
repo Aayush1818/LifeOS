@@ -6,5 +6,7 @@ public enum IngestionStatus {
     PROCESSING,
     PROCESSED,
     EXTRACTION_FAILED,
+    EMBEDDING_FAILED,
+    FAILED,
     DELETED
 }
