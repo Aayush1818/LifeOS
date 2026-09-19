@@ -148,8 +148,19 @@ LifeOS Architecture
 * **Reminder Subsystem Synchronization**: Automatic creation, rescheduling, and dismissal of `HEALTH_APPOINTMENT` reminders in the core notifications subsystem based on configurable reminder offset minutes.
 * **Proactive Upcoming Visits**: Rapid querying of upcoming appointments within a configurable day window (`/api/v1/healthcare/appointments/upcoming?windowDays=14`).
 
-### F. Travel & Trips
-* Itinerary management with dates, hotels, transport tickets, and expense budgets.
+### F. Travel & Trip Itinerary Management (Phase 8 Implemented)
+* **Trips & Destinations**: Complete lifecycle tracking (`PLANNED`, `CONFIRMED`, `IN_PROGRESS`, `COMPLETED`, `CANCELLED`), destination metadata, start/end dates, total budget, and actual spend.
+* **Extensible Unified Itinerary Model**: Unified `itinerary_items` structure supporting `FLIGHT`, `TRAIN`, `BUS`, `LODGING`, `ACTIVITY`, `RESTAURANT`, `RENTAL_CAR`, `TRANSFER`, and `CUSTOM` (with `customTypeName`) without schema proliferation.
+* **Strict Multi-Currency Financial Aggregation**:
+  * 100% `BigDecimal` monetary values (`NUMERIC(14,2)`).
+  * **Zero silent mixing**: expenses are strictly grouped and reported by currency (`totalsByCurrency`).
+  * `consolidatedTotal` is populated *only* when all items are in the trip's base currency or when explicit user-recorded exchange rates are provided (`exchangeRateToBase`); otherwise `consolidatedTotal` is strictly `null` with a clear explanation notice. Cancelled items are excluded from active spend totals.
+* **Rigorous International Timezone Architecture**: Local IANA timezone identifiers (`startTimeZone`, `endTimeZone`, e.g., `Asia/Kolkata`, `Europe/London`, `America/New_York`) are preserved as first-class domain attributes alongside UTC `OffsetDateTime` (PostgreSQL `TIMESTAMP WITH TIME ZONE`), supporting complex cross-timezone flights, midnight crossings, and local check-ins.
+* **Zero Duplication Subsystem Reuse**:
+  * **Travel Documents**: Reuses Phase 4 document management (`DocumentCategory.TRAVEL`, `DocumentType.BOARDING_PASS`, `HOTEL_CONFIRMATION`, `ITINERARY`, `TRAVEL_INSURANCE`) linked via `document_entity_links` to trips or individual bookings.
+  * **Automated Travel Reminders**: Reuses core `reminders` table (`TRAVEL_DEPARTURE`, `TRAVEL_CHECKIN`, `TRAVEL_ACTIVITY`) with automatic resynchronization upon itinerary rescheduling and automatic dismissal upon cancellation or deletion.
+* **Family & Traveler Coordination**: Multi-traveler registration supporting primary user and verified family dependents (`TripTravelerEntity`).
+* **Upcoming Trips Scanner**: Rapid querying of upcoming itineraries within configurable day windows (`/api/v1/travel/trips/upcoming?windowDays=30`).
 
 ### G. Automated Reminders & Notifications
 * Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, and warranty expirations.

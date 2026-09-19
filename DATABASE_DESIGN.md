@@ -496,7 +496,7 @@ CREATE INDEX idx_health_user_dependent ON health_appointments(user_id, dependent
 CREATE INDEX idx_health_follow_up ON health_appointments(follow_up_to_id) WHERE follow_up_to_id IS NOT NULL;
 
 -- ============================================================================
--- 7. TRAVEL & TRIPS
+-- 7. TRAVEL, TRIPS & EXTENSIBLE ITINERARY (Enhanced in Phase 8 / V6)
 -- ============================================================================
 CREATE TABLE trips (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -505,27 +505,86 @@ CREATE TABLE trips (
     trip_title VARCHAR(200) NOT NULL,
     start_date DATE NOT NULL,
     end_date DATE NOT NULL,
-    total_budget NUMERIC(12,2) NOT NULL DEFAULT 0.00,
-    actual_spend NUMERIC(12,2) NOT NULL DEFAULT 0.00,
-    status VARCHAR(30) NOT NULL DEFAULT 'PLANNED', -- PLANNED, ONGOING, COMPLETED
+    total_budget NUMERIC(14,2) NOT NULL DEFAULT 0.00,
+    actual_spend NUMERIC(14,2) NOT NULL DEFAULT 0.00,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    status VARCHAR(30) NOT NULL DEFAULT 'PLANNED', -- PLANNED, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED
+    notes TEXT,
+    cover_image_url VARCHAR(500),
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
     is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX idx_trips_user ON trips(user_id) WHERE NOT is_deleted;
+CREATE INDEX idx_trips_user_dates ON trips(user_id, start_date, end_date) WHERE NOT is_deleted;
+
+-- Multi-traveler support for trips (primary user and dependents)
+CREATE TABLE trip_travelers (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    dependent_id UUID REFERENCES dependents(id) ON DELETE SET NULL,
+    traveler_name VARCHAR(150) NOT NULL,
+    is_primary_user BOOLEAN NOT NULL DEFAULT FALSE,
+    notes VARCHAR(255),
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_trip_travelers_trip ON trip_travelers(trip_id);
+CREATE INDEX idx_trip_travelers_dependent ON trip_travelers(dependent_id) WHERE dependent_id IS NOT NULL;
+
+-- Unified extensible itinerary items (flights, trains, buses, lodging, activities, etc.)
+CREATE TABLE itinerary_items (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    item_type VARCHAR(50) NOT NULL, -- FLIGHT, TRAIN, BUS, LODGING, ACTIVITY, RESTAURANT, RENTAL_CAR, TRANSFER, CUSTOM
+    custom_type_name VARCHAR(100),
+    title VARCHAR(200) NOT NULL,
+    provider VARCHAR(150),
+    booking_reference VARCHAR(100),
+    confirmation_details TEXT,
+    start_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    start_time_zone VARCHAR(50) NOT NULL DEFAULT 'UTC',
+    start_location VARCHAR(255),
+    end_time TIMESTAMP WITH TIME ZONE,
+    end_time_zone VARCHAR(50) NOT NULL DEFAULT 'UTC',
+    end_location VARCHAR(255),
+    status VARCHAR(30) NOT NULL DEFAULT 'CONFIRMED', -- PENDING, CONFIRMED, CANCELLED, COMPLETED
+    cost NUMERIC(14,2) DEFAULT 0.00,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    exchange_rate_to_base NUMERIC(12,6),
+    reminder_offset_minutes INT,
+    notes TEXT,
+    metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_itinerary_items_trip ON itinerary_items(trip_id) WHERE NOT is_deleted;
+CREATE INDEX idx_itinerary_items_trip_time ON itinerary_items(trip_id, start_time) WHERE NOT is_deleted;
+CREATE INDEX idx_itinerary_items_user_time ON itinerary_items(user_id, start_time) WHERE NOT is_deleted;
 
 CREATE TABLE trip_expenses (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     trip_id UUID NOT NULL REFERENCES trips(id) ON DELETE CASCADE,
-    amount NUMERIC(12,2) NOT NULL,
+    amount NUMERIC(14,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL DEFAULT 'USD',
+    exchange_rate_to_base NUMERIC(12,6),
     category VARCHAR(50) NOT NULL, -- FLIGHT, HOTEL, FOOD, TRANSPORT, ACTIVITIES, OTHER
     description VARCHAR(255) NOT NULL,
     expense_date DATE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+    notes TEXT,
+    document_id UUID REFERENCES documents(id) ON DELETE SET NULL,
+    is_deleted BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_trip_expenses_trip ON trip_expenses(trip_id);
+CREATE INDEX idx_trip_expenses_trip ON trip_expenses(trip_id) WHERE NOT is_deleted;
+CREATE INDEX idx_trip_expenses_trip_date ON trip_expenses(trip_id, expense_date) WHERE NOT is_deleted;
 
 -- ============================================================================
 -- 8. PERSONAL FINANCE & MONTHLY BUDGETS (Enhanced in Phase 5 / V3)
@@ -703,4 +762,16 @@ PostgreSQL generated column `tsv_content` converts English text chunks into inde
   * `idx_health_user_dependent` on `health_appointments(user_id, dependent_id)` where `is_deleted = false`.
   * `idx_health_follow_up` on `health_appointments(follow_up_to_id)` where `follow_up_to_id IS NOT NULL`.
 * Added composite index `idx_doc_entity_links_composite` and unique constraint `uq_doc_entity_links` on `document_entity_links(entity_type, entity_id, document_id)`.
+
+### `V6__travel_and_trip_itinerary.sql` (Phase 8)
+* Enhanced `trips` table with `currency` (`VARCHAR(3)` default `'USD'`), `notes` (`TEXT`), `cover_image_url` (`VARCHAR(500)`), and `metadata` (`JSONB NOT NULL DEFAULT '{}'::jsonb`).
+* Created `trip_travelers` table supporting registered primary users and verified dependents (`dependent_id` FK).
+* Created `itinerary_items` unified extensible table supporting `FLIGHT`, `TRAIN`, `BUS`, `LODGING`, `ACTIVITY`, `RESTAURANT`, `RENTAL_CAR`, `TRANSFER`, and `CUSTOM` (with `custom_type_name`), explicit IANA timezones (`start_time_zone`, `end_time_zone`), `cost`, `currency`, `exchange_rate_to_base`, and reminder offsets.
+* Enhanced `trip_expenses` table with `currency`, `exchange_rate_to_base`, `notes`, and `document_id` (FK to `documents`).
+* Created performance query indexes:
+  * `idx_trips_user_dates` on `trips(user_id, start_date, end_date)` where `is_deleted = false`.
+  * `idx_trip_travelers_trip` on `trip_travelers(trip_id)`.
+  * `idx_itinerary_items_trip_time` on `itinerary_items(trip_id, start_time)` where `is_deleted = false`.
+  * `idx_itinerary_items_user_time` on `itinerary_items(user_id, start_time)` where `is_deleted = false`.
+  * `idx_trip_expenses_trip_date` on `trip_expenses(trip_id, expense_date)` where `is_deleted = false`.
 

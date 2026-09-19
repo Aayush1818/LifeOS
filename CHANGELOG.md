@@ -4,6 +4,40 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0-alpha] - 2026-09-19
+### Added
+* **Phase 8: Travel & Trip Itinerary Management**
+  * Flyway migration `V6__travel_and_trip_itinerary.sql`:
+    * Enhanced `trips` table with `currency` (`VARCHAR(3)` default `'USD'`), `notes` (`TEXT`), `cover_image_url` (`VARCHAR(500)`), and `metadata` (`JSONB NOT NULL DEFAULT '{}'::jsonb`).
+    * Created `trip_travelers` table supporting registered primary users and verified dependents (`dependent_id` FK).
+    * Created `itinerary_items` unified extensible table supporting `FLIGHT`, `TRAIN`, `BUS`, `LODGING`, `ACTIVITY`, `RESTAURANT`, `RENTAL_CAR`, `TRANSFER`, and `CUSTOM` (with `custom_type_name`), explicit IANA timezones (`start_time_zone`, `end_time_zone`), `cost`, `currency`, `exchange_rate_to_base`, and reminder offsets.
+    * Enhanced `trip_expenses` table with `currency`, `exchange_rate_to_base`, `notes`, and `document_id` (FK to `documents`).
+    * Created performance query indexes: `idx_trips_user_dates`, `idx_trip_travelers_trip`, `idx_itinerary_items_trip_time`, `idx_itinerary_items_user_time`, `idx_trip_expenses_trip_date`.
+  * Strict Multi-Currency Financial Aggregation:
+    * 100% `BigDecimal` calculations with PostgreSQL `NUMERIC(14,2)` and `RoundingMode.HALF_UP` (zero float/double drift).
+    * **Zero Silent Currency Conversion**: Totals are strictly partitioned and reported by currency (`totalsByCurrency`).
+    * `consolidatedTotal` is populated *only* when all items are in the trip's base currency or when explicit user-recorded exchange rates are provided (`exchangeRateToBase`); otherwise `consolidatedTotal` is strictly `null` with a clear explanation notice.
+    * Active spend calculation correctly excludes cancelled bookings.
+  * Rigorous International Timezone Architecture:
+    * Local IANA timezone identifiers (`startTimeZone`, `endTimeZone`, e.g., `Asia/Kolkata`, `Europe/London`, `America/New_York`) are preserved as first-class domain attributes alongside UTC `OffsetDateTime` (PostgreSQL `TIMESTAMP WITH TIME ZONE`).
+    * Accurately models cross-timezone travel, midnight date transitions, and local hotel check-ins.
+  * Subsystem Reuse (Zero Duplication):
+    * **Travel Documents**: Reuses Phase 4 document management; extended `DocumentType` enum with `BOARDING_PASS`, `HOTEL_CONFIRMATION`, `ITINERARY`, `TRAVEL_INSURANCE`; links documents to trips or individual bookings via `document_entity_links`.
+    * **Automated Travel Reminders**: Reuses core `reminders` subsystem (`TRAVEL_DEPARTURE`, `TRAVEL_CHECKIN`, `TRAVEL_ACTIVITY`); automatically resynchronizes on itinerary rescheduling and automatically dismisses on cancellation or deletion.
+  * Family & Traveler Coordination:
+    * Multi-traveler registration supporting primary user and verified family dependents (`TripTravelerEntity`).
+    * Dependent ownership validation rejecting cross-tenant traveler references.
+  * Upcoming Trips Scanner:
+    * Proactive scanning of upcoming trips within configurable day windows (`/api/v1/travel/trips/upcoming?windowDays=30`).
+  * Multi-Tenant Resource Authorization:
+    * All trips, itinerary items, travelers, and document links strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+    * Cross-tenant access attempts return RFC 7807 `404 Not Found`.
+  * Verification:
+    * 15 automated integration tests in `TravelControllerTest.java` bringing total test suite to 88/88 passed tests (0 failures, 0 errors).
+    * 16/16 live HTTP verification checks passed (`scratch/verify_phase8.ps1`) on Tomcat port 8080 against PostgreSQL 18.
+
+---
+
 ## [0.7.0-alpha] - 2026-09-19
 ### Added
 * **Phase 7: Healthcare & Doctor Appointments (Non-Diagnostic) & Medical Document Organization**

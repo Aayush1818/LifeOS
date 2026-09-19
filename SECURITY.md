@@ -159,7 +159,28 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 8. Anti-Hallucination & AI Privacy Boundaries
+## 8. Travel & Trip Management Security & Currency Integrity
+
+1. **Multi-Tenant Scoping & Strict Resource Isolation**:
+   * All trips, itinerary items, travelers, and linked travel documents are strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+   * Cross-tenant access attempts return RFC 7807 `404 Not Found` rather than `403 Forbidden` to prevent resource enumeration.
+   * Cross-module verification: registering a family dependent as a traveler validates that the `dependentId` belongs to the authenticated user and is active; referencing an unowned dependent returns RFC 7807 `404 Not Found`.
+2. **Deterministic Multi-Currency Guardrails**:
+   * 100% `BigDecimal` representation with PostgreSQL `NUMERIC(14,2)` and `RoundingMode.HALF_UP`.
+   * **Zero Silent Currency Conversion**: Trips containing mixed currencies without explicit user-recorded exchange rates strictly omit `consolidatedTotal` (`null`) and group totals by currency (`totalsByCurrency`), preventing distorted financial reporting.
+   * Cancelled bookings are strictly excluded from active trip spending calculations.
+3. **Subsystem Reuse & Document Security**:
+   * Boarding passes, tickets, hotel confirmations, and travel insurance policies leverage Phase 4 document management with Apache Tika magic-byte MIME validation, 25MB file caps, and user-isolated storage.
+   * Document-to-entity linking (`document_entity_links`) validates dual-ownership: both the trip/itinerary item and the document must belong to the caller.
+4. **Timezone Integrity & Reminder Synchronization**:
+   * Local IANA timezone strings (`startTimeZone`, `endTimeZone`) are validated and stored as domain attributes alongside UTC `OffsetDateTime`.
+   * Reminders in the core `reminders` subsystem (`TRAVEL_DEPARTURE`, `TRAVEL_CHECKIN`, `TRAVEL_ACTIVITY`) automatically synchronize on itinerary creation/rescheduling and automatically dismiss on cancellation or deletion.
+5. **No Autonomous External Purchasing Boundary**:
+   * LifeOS strictly functions as a personal itinerary and organizational life management platform. It does not initiate automated bookings, purchases, or external third-party API mutations.
+
+---
+
+## 9. Anti-Hallucination & AI Privacy Boundaries
 
 1. **Context Window Isolation**: AI conversation sessions strictly inject retrieved chunks tagged with the authenticated user's ID. No cross-tenant document chunks can enter the LLM prompt context.
 2. **No Data Leakage in AI Logs**: Logs sanitize user PII, document binary excerpts, and authentication headers.
@@ -167,7 +188,8 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 9. Secrets Management
+## 10. Secrets Management
 
 * **No Hard-Coded Credentials**: API keys, database passwords, and JWT secrets are injected via system environment variables or `.env` files (ignored in `.gitignore`).
 * **Environment Template**: A fully documented `.env.example` template is provided with production-recommended defaults.
+

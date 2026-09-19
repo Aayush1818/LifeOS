@@ -856,7 +856,156 @@ Retrieves all medical documents belonging to the user with optional filters:
 
 ---
 
-## 8. AI Assistant & Hybrid RAG (`/api/v1/ai`)
+## 8. Travel & Trip Itinerary Management (`/api/v1/travel`)
+
+### `POST /api/v1/travel/trips`
+Creates a new trip with destination, dates, budget, and base currency.
+* **Request Body**:
+  ```json
+  {
+    "tripTitle": "European Summer Tour 2026",
+    "destination": "London, UK & Paris, France",
+    "startDate": "2026-10-10",
+    "endDate": "2026-10-25",
+    "currency": "EUR",
+    "totalBudget": 4500.00,
+    "notes": "Vacation covering London and Paris"
+  }
+  ```
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "e0d5a3b6-...",
+      "destination": "London, UK & Paris, France",
+      "tripTitle": "European Summer Tour 2026",
+      "startDate": "2026-10-10",
+      "endDate": "2026-10-25",
+      "totalBudget": 4500.00,
+      "actualSpend": 0.00,
+      "currency": "EUR",
+      "status": "PLANNED",
+      "travelersCount": 1,
+      "itineraryItemsCount": 0
+    }
+  }
+  ```
+
+### `GET /api/v1/travel/trips`
+Retrieves paginated trips for the authenticated user, optionally filtered by `status`.
+* **Query Parameters**: `status=PLANNED`, `page=0`, `size=20`
+
+### `GET /api/v1/travel/trips/upcoming`
+Retrieves trips starting or ongoing within the specified day window (default: 30 days). Excludes `CANCELLED` and `COMPLETED` trips.
+* **Query Parameters**: `windowDays=30`
+
+### `GET /api/v1/travel/trips/{id}`
+Retrieves full details of a trip, including registered travelers, chronological itinerary items, linked travel documents, and the strict multi-currency spend summary.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "data": {
+      "id": "e0d5a3b6-...",
+      "tripTitle": "European Summer Tour 2026",
+      "destination": "London, UK & Paris, France",
+      "startDate": "2026-10-10",
+      "endDate": "2026-10-25",
+      "totalBudget": 4500.00,
+      "currency": "EUR",
+      "status": "CONFIRMED",
+      "travelers": [ ... ],
+      "itinerary": [ ... ],
+      "linkedDocuments": [ ... ],
+      "spendSummary": {
+        "baseCurrency": "EUR",
+        "totalsByCurrency": {
+          "EUR": 450.00,
+          "GBP": 150.00
+        },
+        "consolidatedTotal": null,
+        "hasUnconvertedCurrencies": true,
+        "conversionPolicyNotice": "Trip contains mixed currencies ([EUR, GBP]) without explicit exchange rates. Consolidated total is strictly omitted to prevent erroneous calculation."
+      }
+    }
+  }
+  ```
+
+### `PUT /api/v1/travel/trips/{id}`
+Updates trip title, destination, dates, budget, status, or cover image.
+
+### `DELETE /api/v1/travel/trips/{id}`
+Soft-deletes the trip, cascades soft-delete to associated itinerary items, and dismisses all linked departure/check-in reminders.
+
+### `POST /api/v1/travel/trips/{id}/travelers`
+Registers a traveler for the trip. If `dependentId` is provided, validates that the dependent belongs to the authenticated user.
+* **Request Body**:
+  ```json
+  {
+    "travelerName": "Sophia Verified",
+    "dependentId": "8818501c-...",
+    "isPrimaryUser": false,
+    "notes": "Child traveler, requires child meal"
+  }
+  ```
+
+### `DELETE /api/v1/travel/trips/{id}/travelers/{travelerId}`
+Removes a registered traveler from the trip.
+
+### `POST /api/v1/travel/trips/{id}/documents/{documentId}`
+Links an existing uploaded document (category `TRAVEL` or general) to the trip via `document_entity_links`.
+
+### `DELETE /api/v1/travel/trips/{id}/documents/{documentId}`
+Unlinks a document from the trip.
+
+### `POST /api/v1/travel/trips/{tripId}/itinerary`
+Adds a structured itinerary item (`FLIGHT`, `TRAIN`, `BUS`, `LODGING`, `ACTIVITY`, `RESTAURANT`, `RENTAL_CAR`, `TRANSFER`, `CUSTOM`). Automatically schedules reminders in the core `reminders` table based on `reminderOffsetMinutes`.
+* **Request Body**:
+  ```json
+  {
+    "itemType": "FLIGHT",
+    "title": "British Airways Flight BA308",
+    "provider": "British Airways",
+    "bookingReference": "BA7789X",
+    "startTime": "2026-10-10T08:00:00Z",
+    "endTime": "2026-10-10T10:15:00Z",
+    "startTimeZone": "Europe/London",
+    "endTimeZone": "Europe/Paris",
+    "startLocation": "London Heathrow (LHR) Terminal 5",
+    "endLocation": "Paris Charles de Gaulle (CDG) Terminal 2A",
+    "cost": 180.00,
+    "currency": "EUR",
+    "status": "CONFIRMED",
+    "reminderOffsetMinutes": 180
+  }
+  ```
+
+### `GET /api/v1/travel/trips/{tripId}/itinerary`
+Retrieves chronological itinerary items for the trip.
+
+### `PUT /api/v1/travel/trips/{tripId}/itinerary/{itemId}`
+Updates an itinerary item. If `startTime` changes, automatically resynchronizes the linked reminder's `due_at` date.
+
+### `POST /api/v1/travel/trips/{tripId}/itinerary/{itemId}/status`
+Transitions booking status (`PENDING`, `CONFIRMED`, `CANCELLED`, `COMPLETED`). Transitions to `CANCELLED` automatically dismiss the linked reminder.
+
+### `DELETE /api/v1/travel/trips/{tripId}/itinerary/{itemId}`
+Soft-deletes the itinerary item and dismisses the linked reminder.
+
+### `POST /api/v1/travel/trips/{tripId}/itinerary/{itemId}/documents/{documentId}`
+Links a boarding pass, hotel confirmation, or ticket directly to a specific itinerary item.
+
+### `DELETE /api/v1/travel/trips/{tripId}/itinerary/{itemId}/documents/{documentId}`
+Unlinks a document from an itinerary item.
+
+### `GET /api/v1/travel/documents`
+Retrieves paginated travel documents belonging to the authenticated user.
+* **Query Parameters**: `type=BOARDING_PASS`, `page=0`, `size=20`
+
+---
+
+## 9. AI Assistant & Hybrid RAG (`/api/v1/ai`)
 
 ### `POST /api/v1/ai/chat`
 * **Request Body**:

@@ -19,6 +19,8 @@ public interface DocumentRepository extends JpaRepository<DocumentEntity, UUID> 
 
     Page<DocumentEntity> findAllByUserIdAndCategoryAndIsDeletedFalse(UUID userId, DocumentCategory category, Pageable pageable);
 
+    Page<DocumentEntity> findAllByUserIdAndCategoryAndDocumentTypeAndIsDeletedFalse(UUID userId, DocumentCategory category, com.lifeos.document.entity.DocumentType documentType, Pageable pageable);
+
     Page<DocumentEntity> findAllByUserIdAndDependentIdAndIsDeletedFalse(UUID userId, UUID dependentId, Pageable pageable);
 
     Page<DocumentEntity> findAllByUserIdAndDependentIdAndCategoryAndIsDeletedFalse(UUID userId, UUID dependentId, DocumentCategory category, Pageable pageable);

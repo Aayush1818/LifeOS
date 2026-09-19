@@ -17,6 +17,8 @@ public interface ReminderRepository extends JpaRepository<ReminderEntity, UUID> 
 
     Optional<ReminderEntity> findByTargetEntityIdAndReminderTypeAndIsDeletedFalse(UUID targetEntityId, String reminderType);
 
+    Optional<ReminderEntity> findByTargetEntityIdAndIsDeletedFalse(UUID targetEntityId);
+
     List<ReminderEntity> findAllByUserIdAndStatusAndIsDeletedFalse(UUID userId, ReminderStatus status);
 
     List<ReminderEntity> findAllByStatusAndDueAtLessThanEqualAndIsDeletedFalse(ReminderStatus status, OffsetDateTime cutoff);
