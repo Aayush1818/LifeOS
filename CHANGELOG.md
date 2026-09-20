@@ -4,6 +4,31 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0-alpha] - 2026-09-20
+### Added
+* **Phase 14: Safe Agentic AI & Tool Calling Integration**
+  * Flyway Migration `V11__agent_tools_and_pending_actions.sql`:
+    * Created `pending_actions` table: first-class Human-in-the-Loop (HITL) barrier for state-mutating agent actions with user isolation, JSONB parameters, status lifecycle, and TTL expiration.
+    * Created composite index `idx_pending_actions_user_status` and partial index `idx_pending_actions_expires` (`WHERE status = 'PENDING'`).
+  * Pluggable Tool Registry SPI (`com.lifeos.ai.agent.tool`):
+    * `LifeOSTool` SPI decoupling tool definition, execution, and confirmation requirements from AI orchestration.
+    * `LifeOSToolRegistry`: auto-discovering Spring component registering all active tools and exposing schemas to LLM requests.
+    * Read-only deterministic tools: `LoanSummaryTool`, `InsuranceRenewalsTool`, `MonthlySpendSummaryTool`, `HealthcareAppointmentsTool`, `TripItineraryTool`, `DocumentSearchTool`.
+    * State-mutating tools: `CreateReminderTool`, `RecordLoanPaymentTool` (marked `requiresConfirmation = true`).
+  * Safe Agentic Orchestration & HITL Guardrails (`com.lifeos.ai.agent`):
+    * `AgentOrchestrator`: multi-turn tool calling engine with hard loop limit (`MAX_AGENT_TURNS = 3`) preventing infinite loops.
+    * State-mutation interception: automatically captures mutating tool calls, persists `pending_actions` records, and halts orchestration until explicit user confirmation.
+    * `ActionConfirmationService`: manages lifecycle of pending actions (`PENDING`, `CONFIRMED`, `REJECTED`, `EXPIRED`, `FAILED`) and dispatches confirmed actions to target domain services.
+  * REST API (`AgentActionController`):
+    * `GET /api/v1/assistant/actions/pending`: retrieve pending actions awaiting confirmation for the authenticated tenant.
+    * `POST /api/v1/assistant/actions/{id}/confirm`: confirm and execute a pending action.
+    * `POST /api/v1/assistant/actions/{id}/reject`: cancel and reject a pending action.
+    * Updated `POST /api/v1/assistant/conversations/{id}/messages`: returns `pendingAction` and `toolCallsExecuted` metadata.
+  * Multi-Tenant Isolation & Safety:
+    * Attempted access to another tenant's pending actions returns RFC 7807 `404 Not Found`.
+    * Expired actions are blocked from confirmation (`400 Bad Request`).
+    * All financial/domain analytics originate strictly from verified Java services, never synthesized by LLM.
+
 ## [0.13.0-alpha] - 2026-09-20
 ### Added
 * **Phase 13: Grounded AI Assistant & LLM Integration**

@@ -25,4 +25,7 @@ public class LlmRequest {
 
     @Builder.Default
     private Double topP = 1.0;
+
+    @Builder.Default
+    private List<ToolDefinitionDto> tools = new ArrayList<>();
 }

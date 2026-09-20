@@ -17,6 +17,8 @@ erDiagram
     USERS ||--o{ BUDGETS : defines
     USERS ||--o{ REMINDERS : configures
     USERS ||--o{ CONVERSATIONS : conducts
+    USERS ||--o{ PENDING_ACTIONS : awaits
+    CONVERSATIONS ||--o{ PENDING_ACTIONS : triggers
 
     DOCUMENTS ||--o{ DOCUMENT_CHUNKS : contains
     DOCUMENTS ||--o{ DOCUMENT_ENTITY_LINKS : links
@@ -261,6 +263,21 @@ erDiagram
         text snippet
         numeric confidence_score
         timestamp created_at
+    }
+
+    PENDING_ACTIONS {
+        uuid id PK
+        uuid user_id FK
+        uuid conversation_id FK
+        varchar action_type
+        varchar description
+        jsonb parameters
+        varchar status
+        timestamp expires_at
+        timestamp executed_at
+        text failure_reason
+        timestamp created_at
+        timestamp updated_at
     }
 ```
 
@@ -890,6 +907,29 @@ CREATE TABLE asset_status_history (
 CREATE INDEX idx_asset_status_history_asset_id ON asset_status_history(asset_id, changed_at DESC);
 ```
 
+### 2.10 Agent Tools & Pending Actions (Phase 14)
+
+```sql
+-- 1. Pending Actions Table (Human-in-the-Loop Barrier)
+CREATE TABLE pending_actions (
+    id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id           UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    conversation_id   UUID REFERENCES conversations(id) ON DELETE SET NULL,
+    action_type       VARCHAR(100) NOT NULL,
+    description       TEXT NOT NULL,
+    parameters        JSONB NOT NULL DEFAULT '{}'::jsonb,
+    status            VARCHAR(50) NOT NULL DEFAULT 'PENDING',
+    expires_at        TIMESTAMP WITH TIME ZONE NOT NULL,
+    executed_at       TIMESTAMP WITH TIME ZONE,
+    failure_reason    TEXT,
+    created_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at        TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_pending_actions_user_status ON pending_actions(user_id, status);
+CREATE INDEX idx_pending_actions_expires ON pending_actions(expires_at) WHERE status = 'PENDING';
+```
+
 ---
 
 ## 3. Indexing & Vector Search Optimization
@@ -1006,4 +1046,10 @@ PostgreSQL generated column `tsv_content` converts English text chunks into inde
   * Enhanced `chat_messages` table with `prompt_tokens` (`INT DEFAULT 0`), `completion_tokens` (`INT DEFAULT 0`), and `model_name` (`VARCHAR(100)`).
 * **Provenance & Footnote Mapping**:
   * Enhanced `message_citations` table with `citation_index` (`INT DEFAULT 1`), `section_title` (`VARCHAR(255)`), and `source_citation` (`VARCHAR(500)`) for end-to-end auditability and citation rendering.
+
+### `V11__agent_tools_and_pending_actions.sql` (Phase 14)
+* Created `pending_actions` table: first-class Human-in-the-Loop (HITL) barrier for state-mutating agent actions with `user_id`, `conversation_id`, `action_type`, `description`, `parameters`, `status` (`PENDING`, `CONFIRMED`, `REJECTED`, `EXPIRED`, `FAILED`), `expires_at`, `executed_at`, `failure_reason`.
+* Created performance query indexes:
+  * `idx_pending_actions_user_status` on `pending_actions(user_id, status)` for fast user pending action queries.
+  * Partial index `idx_pending_actions_expires` on `pending_actions(expires_at) WHERE status = 'PENDING'` for background expiry sweeps.
 

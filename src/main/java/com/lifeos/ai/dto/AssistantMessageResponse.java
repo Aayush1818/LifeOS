@@ -31,4 +31,9 @@ public class AssistantMessageResponse {
     private TokenUsageDto usage;
 
     private ModelMetadataDto modelMetadata;
+
+    private com.lifeos.ai.agent.dto.PendingActionDto pendingAction;
+
+    @Builder.Default
+    private List<com.lifeos.ai.llm.ToolCallDto> toolCalls = new ArrayList<>();
 }

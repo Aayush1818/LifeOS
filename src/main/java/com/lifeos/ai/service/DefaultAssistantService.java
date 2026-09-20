@@ -1,5 +1,6 @@
 package com.lifeos.ai.service;
 
+import com.lifeos.ai.agent.service.AgentOrchestrator;
 import com.lifeos.ai.conversation.entity.ChatMessage;
 import com.lifeos.ai.conversation.entity.Conversation;
 import com.lifeos.ai.conversation.entity.MessageCitation;
@@ -48,7 +49,9 @@ public class DefaultAssistantService implements AssistantService {
     private final ContextAssembler contextAssembler;
     private final PromptBuilder promptBuilder;
     private final LlmProvider llmProvider;
+    private final AgentOrchestrator agentOrchestrator;
     private final CitationValidator citationValidator;
+    private final com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @Override
     @Transactional
@@ -91,31 +94,44 @@ public class DefaultAssistantService implements AssistantService {
         List<ChatMessage> history = chatMessageRepository.findByConversationIdOrderByCreatedAtAsc(conversationId);
         List<ChatMessage> priorHistory = history.isEmpty() ? List.of() : history.subList(0, Math.max(0, history.size() - 1));
 
-        // 7. Build Versioned Prompt
-        LlmRequest llmRequest = promptBuilder.buildRequest(
+        // 7. Execute Agent Orchestrator (Multi-turn tool loop & confirmation gating)
+        AgentOrchestrator.OrchestratorResult orchestratorResult = agentOrchestrator.orchestrate(
+                userId,
+                conversationId,
                 assembledContext,
                 retrievalResponse.isHasRelevantContext(),
                 priorHistory,
                 request.getContent()
         );
 
-        // 8. Invoke Pluggable LLM Provider
-        LlmResponse llmResponse = llmProvider.generate(llmRequest);
+        LlmResponse llmResponse = orchestratorResult.getLlmResponse();
+        String finalAnswer = orchestratorResult.getFinalContent();
 
-        // 9. Validate Inline Citations
+        // 8. Validate Inline Citations
         ValidatedCitationResult citationResult = citationValidator.validate(
-                llmResponse.getContent(),
+                finalAnswer,
                 assembledContext
         );
+
+        // 9. Serialize executed tool calls
+        String toolCallsJson = "[]";
+        try {
+            if (orchestratorResult.getExecutedToolCalls() != null && !orchestratorResult.getExecutedToolCalls().isEmpty()) {
+                toolCallsJson = objectMapper.writeValueAsString(orchestratorResult.getExecutedToolCalls());
+            }
+        } catch (Exception e) {
+            log.warn("Failed to serialize executed tool calls: {}", e.getMessage());
+        }
 
         // 10. Persist Assistant Message
         ChatMessage assistantMessage = ChatMessage.builder()
                 .conversation(conversation)
                 .senderRole(MessageRole.ASSISTANT)
                 .content(citationResult.getSanitizedContent())
-                .promptTokens(llmResponse.getUsage() != null ? llmResponse.getUsage().getPromptTokens() : 0)
-                .completionTokens(llmResponse.getUsage() != null ? llmResponse.getUsage().getCompletionTokens() : 0)
-                .modelName(llmResponse.getModel())
+                .toolCalls(toolCallsJson)
+                .promptTokens(llmResponse != null && llmResponse.getUsage() != null ? llmResponse.getUsage().getPromptTokens() : 0)
+                .completionTokens(llmResponse != null && llmResponse.getUsage() != null ? llmResponse.getUsage().getCompletionTokens() : 0)
+                .modelName(llmResponse != null ? llmResponse.getModel() : "mock-gpt-4o-mini")
                 .createdAt(OffsetDateTime.now())
                 .build();
         ChatMessage savedAssistantMessage = chatMessageRepository.save(assistantMessage);
@@ -150,7 +166,7 @@ public class DefaultAssistantService implements AssistantService {
 
         // 13. Construct Response DTO
         TokenUsageDto usageDto = new TokenUsageDto();
-        if (llmResponse.getUsage() != null) {
+        if (llmResponse != null && llmResponse.getUsage() != null) {
             usageDto.setPromptTokens(llmResponse.getUsage().getPromptTokens());
             usageDto.setCompletionTokens(llmResponse.getUsage().getCompletionTokens());
             usageDto.setTotalTokens(llmResponse.getUsage().getTotalTokens());
@@ -158,8 +174,8 @@ public class DefaultAssistantService implements AssistantService {
 
         ModelMetadataDto modelMetadata = ModelMetadataDto.builder()
                 .provider(llmProvider.getProviderName())
-                .model(llmResponse.getModel())
-                .durationMs(llmResponse.getDurationMs())
+                .model(llmResponse != null ? llmResponse.getModel() : "mock-gpt-4o-mini")
+                .durationMs(llmResponse != null ? llmResponse.getDurationMs() : 0L)
                 .build();
 
         return AssistantMessageResponse.builder()
@@ -181,6 +197,8 @@ public class DefaultAssistantService implements AssistantService {
                 .hasRelevantContext(retrievalResponse.isHasRelevantContext())
                 .usage(usageDto)
                 .modelMetadata(modelMetadata)
+                .pendingAction(orchestratorResult.getPendingAction())
+                .toolCalls(orchestratorResult.getExecutedToolCalls())
                 .build();
     }
 }

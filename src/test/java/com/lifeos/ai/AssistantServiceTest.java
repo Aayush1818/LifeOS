@@ -61,6 +61,10 @@ class AssistantServiceTest {
     private LlmProvider llmProvider;
     @Mock
     private CitationValidator citationValidator;
+    @Mock
+    private com.lifeos.ai.agent.service.AgentOrchestrator agentOrchestrator;
+    @Mock
+    private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
 
     @InjectMocks
     private DefaultAssistantService assistantService;
@@ -131,17 +135,21 @@ class AssistantServiceTest {
 
         when(chatMessageRepository.findByConversationIdOrderByCreatedAtAsc(convId)).thenReturn(List.of());
 
-        LlmRequest llmRequest = LlmRequest.builder().build();
-        when(promptBuilder.buildRequest(any(), anyBoolean(), any(), any())).thenReturn(llmRequest);
-
         LlmResponse llmResponse = LlmResponse.builder()
                 .content("Your deductible is $1000 [1].")
                 .model("mock-gpt-4o-mini")
                 .usage(new LlmUsageDto(100, 20, 120))
                 .durationMs(15L)
                 .build();
-        when(llmProvider.generate(llmRequest)).thenReturn(llmResponse);
         when(llmProvider.getProviderName()).thenReturn("MOCK");
+
+        com.lifeos.ai.agent.service.AgentOrchestrator.OrchestratorResult orchestratorResult =
+                com.lifeos.ai.agent.service.AgentOrchestrator.OrchestratorResult.builder()
+                        .finalContent("Your deductible is $1000 [1].")
+                        .llmResponse(llmResponse)
+                        .build();
+        when(agentOrchestrator.orchestrate(any(), any(), any(), anyBoolean(), any(), any()))
+                .thenReturn(orchestratorResult);
 
         AssistantCitationDto citationDto = AssistantCitationDto.builder()
                 .citationIndex(1)
@@ -208,14 +216,19 @@ class AssistantServiceTest {
         AssembledContext emptyContext = AssembledContext.builder().sourceCount(0).build();
         when(contextAssembler.assemble(any(), any())).thenReturn(emptyContext);
 
-        when(promptBuilder.buildRequest(any(), anyBoolean(), any(), any())).thenReturn(LlmRequest.builder().build());
-
         LlmResponse llmResponse = LlmResponse.builder()
                 .content("I do not have sufficient information in your uploaded documents or records to answer this question accurately.")
                 .model("mock-gpt-4o-mini")
                 .build();
-        when(llmProvider.generate(any())).thenReturn(llmResponse);
         when(llmProvider.getProviderName()).thenReturn("MOCK");
+
+        com.lifeos.ai.agent.service.AgentOrchestrator.OrchestratorResult orchestratorResult =
+                com.lifeos.ai.agent.service.AgentOrchestrator.OrchestratorResult.builder()
+                        .finalContent(llmResponse.getContent())
+                        .llmResponse(llmResponse)
+                        .build();
+        when(agentOrchestrator.orchestrate(any(), any(), any(), anyBoolean(), any(), any()))
+                .thenReturn(orchestratorResult);
 
         when(citationValidator.validate(anyString(), any())).thenReturn(ValidatedCitationResult.builder()
                 .sanitizedContent(llmResponse.getContent())

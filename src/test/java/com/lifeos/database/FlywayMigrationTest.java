@@ -35,7 +35,8 @@ class FlywayMigrationTest {
                 "reminders",
                 "conversations",
                 "chat_messages",
-                "message_citations"
+                "message_citations",
+                "pending_actions"
         );
 
         List<String> actualTables = jdbcTemplate.queryForList(
@@ -93,5 +94,33 @@ class FlywayMigrationTest {
         Boolean docVerIndexExists = jdbcTemplate.queryForObject(
                 "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_chunks_doc_ver');", Boolean.class);
         assertThat(docVerIndexExists).isTrue();
+    }
+
+    @Test
+    void pendingActionsTableAndIndexesShouldBePresent() {
+        List<String> columns = jdbcTemplate.queryForList(
+                "SELECT column_name FROM information_schema.columns WHERE table_name = 'pending_actions';",
+                String.class
+        );
+        assertThat(columns).contains(
+                "id",
+                "user_id",
+                "conversation_id",
+                "tool_name",
+                "parameters",
+                "prompt",
+                "status",
+                "expires_at",
+                "created_at",
+                "executed_at"
+        );
+
+        Boolean userStatusIndexExists = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_pending_actions_user_status');", Boolean.class);
+        assertThat(userStatusIndexExists).isTrue();
+
+        Boolean expiresAtIndexExists = jdbcTemplate.queryForObject(
+                "SELECT EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'idx_pending_actions_expires');", Boolean.class);
+        assertThat(expiresAtIndexExists).isTrue();
     }
 }

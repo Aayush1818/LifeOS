@@ -82,6 +82,101 @@ public class MockLlmProvider implements LlmProvider {
                     .build();
         }
 
+        // Tool calling simulation (Phase 14)
+        boolean hasToolResults = request.getMessages().stream()
+                .anyMatch(m -> "tool".equalsIgnoreCase(m.getRole()));
+
+        if (!hasToolResults && request.getTools() != null && !request.getTools().isEmpty()) {
+            if (userContent.toLowerCase().contains("total loan emi")
+                    || userContent.toLowerCase().contains("active loans")
+                    || userContent.contains("TRIGGER_TOOL_LOAN")) {
+                return LlmResponse.builder()
+                        .content("")
+                        .model(getModelName())
+                        .finishReason("tool_calls")
+                        .toolCalls(java.util.List.of(ToolCallDto.builder()
+                                .id("call_loan_123")
+                                .name("get_loan_summary")
+                                .arguments(java.util.Map.of())
+                                .build()))
+                        .usage(new LlmUsageDto(150, 15, 165))
+                        .durationMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+
+            if (userContent.toLowerCase().contains("record payment")
+                    || userContent.toLowerCase().contains("pay loan")
+                    || userContent.contains("TRIGGER_TOOL_PAYMENT")) {
+                return LlmResponse.builder()
+                        .content("I will prepare the loan payment for your confirmation.")
+                        .model(getModelName())
+                        .finishReason("tool_calls")
+                        .toolCalls(java.util.List.of(ToolCallDto.builder()
+                                .id("call_pay_456")
+                                .name("record_loan_payment")
+                                .arguments(java.util.Map.of(
+                                        "loanId", "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+                                        "amount", 500.00,
+                                        "paymentType", "REGULAR_EMI"
+                                ))
+                                .build()))
+                        .usage(new LlmUsageDto(160, 20, 180))
+                        .durationMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+
+            if (userContent.toLowerCase().contains("reminder")
+                    || userContent.toLowerCase().contains("remind")
+                    || userContent.contains("TRIGGER_TOOL_REMINDER")) {
+                return LlmResponse.builder()
+                        .content("I will prepare the scheduled reminder for your confirmation.")
+                        .model(getModelName())
+                        .finishReason("tool_calls")
+                        .toolCalls(java.util.List.of(ToolCallDto.builder()
+                                .id("call_rem_789")
+                                .name("create_reminder")
+                                .arguments(java.util.Map.of(
+                                        "title", "Dentist appointment reminder",
+                                        "dueAt", "2026-10-15T14:00:00Z"
+                                ))
+                                .build()))
+                        .usage(new LlmUsageDto(160, 20, 180))
+                        .durationMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+
+            if (userContent.toLowerCase().contains("upcoming renewals")
+                    || userContent.contains("TRIGGER_TOOL_INSURANCE")) {
+                return LlmResponse.builder()
+                        .content("")
+                        .model(getModelName())
+                        .finishReason("tool_calls")
+                        .toolCalls(java.util.List.of(ToolCallDto.builder()
+                                .id("call_ins_101")
+                                .name("get_insurance_renewals")
+                                .arguments(java.util.Map.of("daysAhead", 60))
+                                .build()))
+                        .usage(new LlmUsageDto(150, 15, 165))
+                        .durationMs(System.currentTimeMillis() - startTime)
+                        .build();
+            }
+        }
+
+        if (hasToolResults) {
+            String toolSummary = "Based on your real-time records, I've calculated and retrieved the requested domain details.";
+            if (userContent.toLowerCase().contains("loan") || userContent.contains("TRIGGER_TOOL_LOAN")) {
+                toolSummary = "Based on your active loans, your total monthly EMI is calculated and confirmed by your records.";
+            } else if (userContent.toLowerCase().contains("renewal") || userContent.contains("TRIGGER_TOOL_INSURANCE")) {
+                toolSummary = "Here are your upcoming insurance renewals as retrieved from your active policies.";
+            }
+            return LlmResponse.builder()
+                    .content(toolSummary)
+                    .model(getModelName())
+                    .usage(new LlmUsageDto(220, 30, 250))
+                    .durationMs(System.currentTimeMillis() - startTime)
+                    .build();
+        }
+
         // Check for reference sources in system prompt
         Matcher matcher = SOURCE_PATTERN.matcher(systemContent);
         StringBuilder citations = new StringBuilder();

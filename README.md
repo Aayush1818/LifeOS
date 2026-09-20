@@ -204,7 +204,13 @@ LifeOS Architecture
 * **Multi-Tenant Conversation Privacy**: Conversations (`conversations`) and message history (`chat_messages`) are strictly owned by `user_id`, with cross-tenant attempts returning RFC 7807 `404 Not Found`.
 * **Zero Autonomous Mutations**: The assistant is strictly conversational and information-providing, maintaining a rigorous boundary preventing accidental fund transfers or state mutations.
 
-### L. Automated Reminders & Notifications
+### L. Safe Agentic AI & Tool Calling Integration (Phase 14 Implemented)
+* **Deterministic LifeOS Tool Registry**: Decoupled `LifeOSTool` SPI registering deterministic Java domain tools (`get_loan_summary`, `get_insurance_renewals`, `get_monthly_spend_summary`, `get_upcoming_appointments`, `get_trip_itinerary`, `search_documents`).
+* **Human-in-the-Loop (HITL) Barrier**: State-mutating actions (`create_reminder`, `record_loan_payment`) are automatically intercepted, recorded in `pending_actions` with a 24-hour TTL, and halted until explicit user confirmation via REST endpoints (`/api/v1/assistant/actions`).
+* **Multi-Turn Orchestration & Loop Bounds**: Multi-turn agent loop bounded by `MAX_AGENT_TURNS = 3` with recursive tool-result feedback, prompt injection defenses, and strict multi-tenant authorization.
+* **100% Deterministic Financial & Analytical Math**: The LLM is strictly prohibited from estimating, halluncinating, or synthesizing calculations; all summaries are computed by compiled Java domain services.
+
+### M. Automated Reminders & Notifications
 * Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
 
 ---

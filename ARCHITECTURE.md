@@ -284,3 +284,46 @@ flowchart TD
 5. **Traceable Footnote Citations**: Citations (`[1]`, `[2]`) in the LLM response are parsed, validated against the authorized context source map, and stored in `message_citations`. Hallucinated numbers are stripped before persistence.
 6. **Safety & Medical Disclaimers**: If a user queries medical diagnoses or emergency symptoms, the assistant issues an explicit non-diagnostic safety disclaimer advising professional consultation.
 
+---
+
+## 7. Safe Agentic AI & Tool Calling Architecture (Phase 14)
+
+Phase 14 evolves the grounded AI assistant into a **Safe Agentic Assistant** capable of calling deterministic Java domain tools, retrieving live account states, and safely proposing state mutations protected by a **Human-in-the-Loop (HITL)** confirmation barrier.
+
+```mermaid
+flowchart TD
+    UserMsg["User Message<br/>(e.g., 'Pay $500 toward my loan')"]
+    Orchestrator["AgentOrchestrator<br/>(Loop Protection: Max 3 Turns)"]
+    Registry["LifeOSToolRegistry<br/>(Auto-discovers @Component LifeOSTool beans)"]
+    LLM["LlmProvider (with tool declarations)"]
+    
+    UserMsg --> Orchestrator
+    Orchestrator --> LLM
+    LLM -->|Tool Call Request| CheckMutating{"Tool requiresConfirmation()?"}
+    
+    subgraph Read_Only_Flow["Read-Only Tool Path (Deterministic)"]
+        CheckMutating -->|No| ExecuteReadOnly["Execute Domain Tool<br/>(LoanSummary, SpendSummary, etc.)"]
+        ExecuteReadOnly --> FeedOutput["Feed output JSON to conversation"]
+        FeedOutput --> LLM
+        LLM --> FinalSynthesis["Synthesize final grounded response"]
+    end
+    
+    subgraph HITL_Barrier["Human-in-the-Loop Barrier (Mutating Tools)"]
+        CheckMutating -->|Yes| HaltLoop["HALT Orchestrator Loop Immediately"]
+        HaltLoop --> CreatePending["ActionConfirmationService<br/>Create PendingAction (Status: PENDING, 10m Expiry)"]
+        CreatePending --> ReturnPending["Return pendingAction Confirmation Card to User"]
+        ReturnPending --> UserDecision{"User Decision<br/>POST /actions/{id}/confirm or reject"}
+        UserDecision -->|Confirm| ExecMutation["Execute Mutating Tool in Java Service<br/>(RecordLoanPayment, CreateReminder)"]
+        ExecMutation --> MarkConfirmed["Mark CONFIRMED & Log to Conversation"]
+        UserDecision -->|Reject| MarkRejected["Mark REJECTED without executing"]
+    end
+```
+
+### Key Architectural Safeguards:
+1. **Zero Hallucination of Facts & Computations**: All math, loan amortizations, interest calculations, and financial aggregates are performed strictly by compiled Java domain services (`LoanAnalyticsService`, `FinanceAnalyticsService`), never synthesized or guessed by the language model.
+2. **Human-in-the-Loop (HITL) State Mutation Barrier**: Tools that mutate database state (`CreateReminderTool`, `RecordLoanPaymentTool`) implement `requiresConfirmation() == true`. The orchestrator immediately halts upon encountering a mutating tool call, persists an unexecuted `PendingAction` record in PostgreSQL with a 10-minute expiry, and returns an interactive confirmation card to the user.
+3. **Multi-Tenant Confirmation Isolation**: Pending actions can only be confirmed or rejected by the authenticated user who owns them (`WHERE user_id = :userId`). Attempts by other users return `404 Not Found`.
+4. **Execution Loop Protection**: Runaway loops or cycling tool calls are strictly capped at `MAX_AGENT_TURNS = 3` within `AgentOrchestrator`. If the model attempts infinite tool calls, orchestration gracefully halts and returns the accumulated progress.
+5. **Hermetic Offline Testing**: Complete test coverage operates offline using `MockLlmProvider` with simulated tool calls, ensuring deterministic, zero-cost CI/CD execution.
+
+

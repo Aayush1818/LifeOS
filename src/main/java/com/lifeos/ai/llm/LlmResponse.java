@@ -23,4 +23,11 @@ public class LlmResponse {
 
     @Builder.Default
     private Long durationMs = 0L;
+
+    @Builder.Default
+    private java.util.List<ToolCallDto> toolCalls = new java.util.ArrayList<>();
+
+    public boolean hasToolCalls() {
+        return toolCalls != null && !toolCalls.isEmpty();
+    }
 }

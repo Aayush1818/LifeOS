@@ -232,9 +232,35 @@ Phase 13 establishes the Grounded AI Assistant with multi-layered defenses spann
 
 ---
 
-## 11. Secrets Management
+## 11. Safe Agentic AI & Tool Calling Boundaries (Phase 14)
+
+Phase 14 introduces safe autonomous tool calling while maintaining airtight boundaries to prevent unauthorized execution, data leakage, and runaway execution loops:
+
+1. **Human-in-the-Loop (HITL) Barrier**:
+   * Any tool marked with `requiresConfirmation = true` (e.g. `create_reminder`, `record_loan_payment`) cannot execute automatically.
+   * When an agent attempts a mutating tool call, the `AgentOrchestrator` intercepts execution, serializes the call into a `pending_actions` database record with status `PENDING`, and immediately halts orchestration.
+   * The action is only dispatched to the real Java service when the authenticated user explicitly sends a `POST /api/v1/assistant/actions/{id}/confirm` request.
+2. **Deterministic Java-Only Tool Execution**:
+   * The LLM never synthesizes financial calculations, interest rates, or schedule states directly.
+   * All analytical queries (loan amortization, monthly spend summaries, insurance renewals, upcoming appointments) delegate to verified, compiled Java domain services (`LoanAnalyticsService`, `FinanceAnalyticsService`, `InsuranceService`, `HealthAppointmentService`, `TripService`, `DocumentRetrievalEngine`).
+3. **Multi-Tenant Tool & Action Isolation**:
+   * Tools always receive the caller's verified `UUID userId` extracted from the Spring Security context, never an unverified parameter from the LLM prompt.
+   * All tool repository queries enforce tenant filtering (`WHERE user_id = :userId`).
+   * Attempting to view, confirm, or reject another tenant's `PendingAction` strictly returns RFC 7807 `404 Not Found` to prevent action ID enumeration.
+4. **Agent Turn Limits & Loop Protection**:
+   * The `AgentOrchestrator` enforces a hard limit of `MAX_AGENT_TURNS = 3` per user interaction.
+   * If the model attempts to call tools beyond turn 3, the loop forcibly breaks and returns the current assistant response to prevent infinite loops, rate-limit exhaustion, or runaway token consumption.
+5. **Action Expiration & Tamper-Resistance**:
+   * Pending actions carry an explicit `expires_at` timestamp (default: 24 hours).
+   * Expired actions are blocked from confirmation (`400 Bad Request: Pending action has expired`).
+   * Once an action is confirmed, rejected, or expired, its status is terminal; replay attacks are blocked.
+
+---
+
+## 12. Secrets Management
 
 * **No Hard-Coded Credentials**: API keys, database passwords, and JWT secrets are injected via system environment variables or `.env` files (ignored in `.gitignore`).
 * **Environment Template**: A fully documented `.env.example` template is provided with production-recommended defaults.
+
 
 

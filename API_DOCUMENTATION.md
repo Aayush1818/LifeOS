@@ -1746,3 +1746,112 @@ Sends a user message, performs Phase 12 Hybrid RAG retrieval across the user's a
   * `401 Unauthorized`: Missing or invalid JWT.
   * `404 Not Found`: Conversation does not exist or belongs to another user.
   * `502 Bad Gateway`: External LLM provider failure or upstream connection timeout.
+
+---
+
+## 15. Agent Tools & Action Confirmation (`/api/v1/assistant/actions`) (Phase 14)
+
+Safe autonomous tool calling with deterministic Java business execution and Human-in-the-Loop (HITL) confirmation gates for state-mutating actions (`create_reminder`, `record_loan_payment`).
+
+### Registered Agent Tools Reference
+
+| Tool Name | Type | Requires Confirmation | Target Service | Parameters |
+| :--- | :--- | :--- | :--- | :--- |
+| `get_loan_summary` | Read-Only | No | `LoanAnalyticsService` | `loanId` (optional UUID) |
+| `get_insurance_renewals` | Read-Only | No | `InsuranceService` | `daysAhead` (optional int) |
+| `get_monthly_spend_summary` | Read-Only | No | `FinanceAnalyticsService` | `month`, `year` (optional ints) |
+| `get_upcoming_appointments` | Read-Only | No | `HealthAppointmentService` | `daysAhead` (optional int) |
+| `get_trip_itinerary` | Read-Only | No | `TripService` | `tripId` (required UUID) |
+| `search_documents` | Read-Only | No | `DocumentRetrievalEngine` | `query` (required string), `topK` (optional int) |
+| `create_reminder` | Mutating | **Yes** | `ReminderService` | `title` (required string), `dueAt` (required ISO timestamp), `reminderType` (optional string) |
+| `record_loan_payment` | Mutating | **Yes** | `LoanService` | `loanId` (required UUID), `amount` (required numeric), `paymentDate` (optional ISO date), `paymentType` (optional string) |
+
+---
+
+### `GET /api/v1/assistant/actions/pending`
+Lists all active, unexpired pending actions awaiting user confirmation for the authenticated tenant.
+
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Pending actions retrieved successfully",
+    "timestamp": "2026-09-20T10:15:00Z",
+    "data": [
+      {
+        "id": "7ca64703-e847-490b-99d9-c0c169213fb5",
+        "conversationId": "e5812e9b-cf39-444e-a10c-9828d9c19d45",
+        "actionType": "create_reminder",
+        "description": "Create reminder: 'Pay Mortgage EMI' due at 2026-10-01T09:00:00Z",
+        "parameters": {
+          "title": "Pay Mortgage EMI",
+          "dueAt": "2026-10-01T09:00:00Z",
+          "reminderType": "LOAN_EMI"
+        },
+        "status": "PENDING",
+        "expiresAt": "2026-09-21T10:15:00Z",
+        "createdAt": "2026-09-20T10:15:00Z"
+      }
+    ]
+  }
+  ```
+
+---
+
+### `POST /api/v1/assistant/actions/{id}/confirm`
+Confirms and immediately executes a pending action, executing domain business logic in the underlying Java service.
+
+* **Path Parameters**:
+  * `id` (UUID): Pending action ID.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Action confirmed and executed successfully",
+    "timestamp": "2026-09-20T10:16:00Z",
+    "data": {
+      "id": "7ca64703-e847-490b-99d9-c0c169213fb5",
+      "actionType": "create_reminder",
+      "status": "CONFIRMED",
+      "executed": true,
+      "message": "Action executed successfully: Reminder created with ID e10f1350-0df2-4759-b1d5-bc4dbef7bc9f",
+      "executedAt": "2026-09-20T10:16:00Z"
+    }
+  }
+  ```
+* **Error Responses**:
+  * `400 Bad Request`: Action has already been confirmed, rejected, or has expired.
+  * `401 Unauthorized`: Missing or invalid JWT.
+  * `404 Not Found`: Action does not exist or belongs to another tenant.
+
+---
+
+### `POST /api/v1/assistant/actions/{id}/reject`
+Explicitly cancels and rejects a pending action without executing any underlying changes.
+
+* **Path Parameters**:
+  * `id` (UUID): Pending action ID.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Action rejected successfully",
+    "timestamp": "2026-09-20T10:16:30Z",
+    "data": {
+      "id": "7ca64703-e847-490b-99d9-c0c169213fb5",
+      "actionType": "create_reminder",
+      "status": "REJECTED",
+      "executed": false,
+      "message": "Action rejected by user.",
+      "executedAt": null
+    }
+  }
+  ```
+* **Error Responses**:
+  * `400 Bad Request`: Action is not in PENDING state.
+  * `401 Unauthorized`: Missing or invalid JWT.
+  * `404 Not Found`: Action does not exist or belongs to another tenant.
+
