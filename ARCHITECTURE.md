@@ -188,10 +188,26 @@ com.lifeos
 │       ├── config              # RetrievalProperties
 │       └── dto                 # RetrievalRequest, RetrievalResponse, RetrievedChunkDto, RetrievalCitationDto
 │
-└── ai                          # AI & Agentic Intelligence (Phase 13)
-    ├── port                    # LLMProvider, AgentOrchestrator
-    ├── adapter                 # OpenAIProvider, OllamaProvider
-    └── dto                     # ChatMessage, CitationDto, ToolExecutionResult
+└── ai                          # AI & Grounded Assistant (Phase 13)
+    ├── controller              # AssistantController (/api/v1/assistant/conversations, /messages)
+    ├── service                 # AssistantService, DefaultAssistantService, ConversationService
+    ├── conversation            # Multi-Tenant Conversation Sessions
+    │   ├── entity              # Conversation, ChatMessage, MessageCitation, MessageRole
+    │   └── repository          # ConversationRepository, ChatMessageRepository, MessageCitationRepository
+    ├── llm                     # Pluggable LLM Provider SPI & Adapters
+    │   ├── LlmProvider         # Provider SPI (getProviderName, getModelName, generate)
+    │   ├── MockLlmProvider     # Offline deterministic provider for unit/integration/CI tests
+    │   ├── OpenAiCompatibleLlmProvider # Remote OpenAI/Azure/Ollama/vLLM HTTP client
+    │   ├── LlmRequest          # Multi-role prompt request with temperature, maxTokens
+    │   ├── LlmResponse         # Model completion with token usage & latency
+    │   ├── LlmProperties       # Configuration properties (timeout, retries, model, endpoint)
+    │   └── LlmException        # Typed AI provider failure with retryable classification
+    ├── grounding               # Grounding & Verification Engine
+    │   ├── ContextAssembler    # XML delimiter formatting (<untrusted_document_source>), UUID stripping
+    │   ├── PromptBuilder       # Versioned prompt (lifeos-assistant-2026-v1.0), safety constraints
+    │   └── CitationValidator   # Footnote regex validation ([1], [2]), hallucination stripping
+    └── dto                     # CreateConversationRequest, SendMessageRequest, AssistantMessageResponse,
+                                # ConversationResponse, ConversationDetailResponse, AssistantCitationDto
 ```
 
 ---
@@ -229,6 +245,42 @@ LifeOS is designed so future modules (e.g., *Vehicle Management*, *Property Port
 
 ## 5. Non-Functional & Reliability Architecture
 
-* **High Performance Database Queries**: Multi-column composite indexes on `(user_id, created_at)` and `(user_id, status)` ensure single-millisecond response times even with hundreds of thousands of records.
-* **Stateless Scaling**: No HTTP sessions are stored in memory; all authentication state resides in signed, short-lived JWTs.
 * **Graceful Degradation**: If the external AI API is unreachable or times out, standard CRUD and search features continue operating without disruption.
+
+---
+
+## 6. Grounded Conversational AI Architecture (Phase 13)
+
+Phase 13 establishes the personal AI assistant bounded context within LifeOS. It integrates seamlessly with the Phase 12 Hybrid RAG engine to deliver fact-grounded, verifiable conversational answers while strictly enforcing safety guardrails and multi-tenant data boundaries.
+
+```mermaid
+flowchart TD
+    UserQuery["User POST /messages<br/>(JWT Bearer Token)"]
+    AuthValidation{"Tenant Check<br/>userId == conversation.userId?"}
+    RAGRetrieval["Phase 12 Hybrid RAG Engine<br/>(pgvector HNSW + FTS GIN + RRF Fusion)"]
+    ContextAssembler["ContextAssembler<br/>• XML Tag Delimiting<br/>• UUID Stripping<br/>• 1-Indexed Source Map"]
+    PromptBuilder["PromptBuilder<br/>• Version lifeos-assistant-2026-v1.0<br/>• Injection Immunity Directives<br/>• Medical Non-Diagnostic Guardrail<br/>• Sliding History (Max 6 Turns)"]
+    LLMProvider["Pluggable LlmProvider SPI<br/>(MockLlmProvider / OpenAiCompatibleLlmProvider)"]
+    CitationValidator["CitationValidator<br/>• Regex Extract [n]<br/>• Map to Assembled Sources<br/>• Strip Hallucinated References"]
+    Persistence["JPA Transaction<br/>• Save User & Assistant ChatMessage<br/>• Save MessageCitation Links<br/>• Update Conversation lastMessageAt"]
+    ClientResponse["Return AssistantMessageResponse<br/>(Sanitized Content, Citations, Token Usage, Provenance)"]
+
+    UserQuery --> AuthValidation
+    AuthValidation -->|No| Err404["404 Not Found (Tenant Isolated)"]
+    AuthValidation -->|Yes| RAGRetrieval
+    RAGRetrieval --> ContextAssembler
+    ContextAssembler --> PromptBuilder
+    PromptBuilder --> LLMProvider
+    LLMProvider --> CitationValidator
+    CitationValidator --> Persistence
+    Persistence --> ClientResponse
+```
+
+### Architectural Guardrails:
+1. **Multi-Tenant Privacy & Isolation**: Conversations are strictly owned by a single `user_id`. Any attempt by another user to access, post to, or delete a conversation immediately yields `404 Not Found` (mitigating IDOR and enumeration attacks).
+2. **Read-Only / Conversational Scope**: Phase 13 is strictly conversational and information-providing. Tool calls, entity creations, fund transfers, and state mutations are strictly reserved for Phase 14 autonomous agents.
+3. **Pluggable Provider Portability**: The core system depends entirely on the `LlmProvider` Java SPI. In development and CI/CD environments, the deterministic `MockLlmProvider` runs entirely offline with zero external network dependencies.
+4. **Prompt Injection Defense**: Raw retrieved content is isolated within `<untrusted_document_source>` XML delimiters and system prompts explicitly instruct the model to treat all source content as passive reference facts. Internal database UUIDs are never exposed in prompt context.
+5. **Traceable Footnote Citations**: Citations (`[1]`, `[2]`) in the LLM response are parsed, validated against the authorized context source map, and stored in `message_citations`. Hallucinated numbers are stripped before persistence.
+6. **Safety & Medical Disclaimers**: If a user queries medical diagnoses or emergency symptoms, the assistant issues an explicit non-diagnostic safety disclaimer advising professional consultation.
+

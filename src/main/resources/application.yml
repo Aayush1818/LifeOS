@@ -87,4 +87,20 @@ lifeos:
       min-rerank-score-threshold: 0.20
       rerank-limit: 10
       max-context-chars: 16000
+  assistant:
+    llm:
+      provider: ${LIFEOS_LLM_PROVIDER:mock}
+      model: ${LIFEOS_LLM_MODEL:gpt-4o-mini}
+      api-key: ${LIFEOS_LLM_API_KEY:}
+      base-url: ${LIFEOS_LLM_BASE_URL:https://api.openai.com/v1}
+      temperature: 0.1
+      max-tokens: 1024
+      timeout-ms: 20000
+      max-retries: 2
+    context:
+      max-retrieved-chunks: 5
+      max-chunk-chars: 2500
+      max-context-tokens: 3000
+      max-history-messages: 6
+      max-history-tokens: 1500
 

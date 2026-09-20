@@ -204,11 +204,31 @@ public DocumentDto getDocumentById(UUID documentId) {
 
 ---
 
-## 10. Anti-Hallucination & AI Privacy Boundaries
+## 10. Anti-Hallucination & AI Privacy Boundaries (Phase 13)
 
-1. **Context Window Isolation**: AI conversation sessions strictly inject retrieved chunks tagged with the authenticated user's ID. No cross-tenant document chunks can enter the LLM prompt context.
-2. **No Data Leakage in AI Logs**: Logs sanitize user PII, document binary excerpts, and authentication headers.
-3. **Zero Automated Destructive Actions**: The AI Assistant cannot delete documents, mutate loans, or trigger payments without explicit, interactive UI confirmation from the user.
+Phase 13 establishes the Grounded AI Assistant with multi-layered defenses spanning isolation, prompt injection immunity, grounding verification, and safety guardrails:
+
+1. **Multi-Tenant Context & Session Isolation**:
+   * All conversation sessions (`conversations`), messages (`chat_messages`), and citations (`message_citations`) are strictly scoped to `userId = SecurityUtils.getCurrentUserId()`.
+   * Cross-tenant access, message posting, or deletion attempts return RFC 7807 `404 Not Found` (mitigating IDOR enumeration).
+   * Context retrieval is delegated to Phase 12 Hybrid RAG which enforces `user_id = :userId` and `is_active = true` at the database index layer. Foreign document chunks never enter the context window.
+2. **Prompt Injection Defense & Delimiter Escaping**:
+   * Raw retrieved content is isolated within `<untrusted_document_source index="n">` XML delimiters.
+   * If document content contains literal `<untrusted_document_source>` or `</untrusted_document_source>` tags, they are automatically sanitized and escaped by `ContextAssembler` to prevent delimiter breakouts.
+   * Internal database UUIDs (`documentId`, `chunkId`) are stripped from the prompt payload before sending to the model, preventing internal identifier exposure.
+   * System prompt directives (`lifeos-assistant-2026-v1.0`) explicitly instruct the LLM to treat source text strictly as passive reference data and disregard any embedded override commands.
+3. **Traceable Footnote Citations & Hallucination Defense**:
+   * The assistant requires numerical inline citation markers (`[1]`, `[2]`) referencing the 1-indexed source map.
+   * `CitationValidator` parses all citation markers via regex and cross-references them with the authorized source map.
+   * Any citation markers pointing to nonexistent indices or hallucinated sources are stripped from the message content before persistence.
+   * If no relevant context exists, the assistant politely declines to answer rather than guessing or extrapolating facts.
+4. **Safety Guardrails & Action Boundaries**:
+   * **Medical Safety**: The assistant is strictly non-diagnostic. Queries requesting medical diagnoses or prescriptions trigger an immediate safety disclaimer advising professional healthcare or emergency services.
+   * **Financial Read-Only**: The assistant is strictly informational and read-only. It cannot execute transactions, initiate transfers, or mutate account balances.
+   * **Action Boundary**: The assistant cannot autonomously mutate state, delete records, or book travel. State mutations are reserved for interactive user actions or future Phase 14 agent workflows.
+5. **Deterministic Offline CI/CD Security**:
+   * All automated unit and integration tests run against `MockLlmProvider` with zero live network calls to third-party commercial LLM endpoints, eliminating token costs and API credential leaks in CI/CD pipelines.
+
 
 ---
 

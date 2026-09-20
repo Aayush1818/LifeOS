@@ -998,3 +998,12 @@ PostgreSQL generated column `tsv_content` converts English text chunks into inde
   * **Lexical Candidates Query**: Uses GIN index `idx_chunks_tsv` on `document_chunks.tsv_content` via `ts_rank_cd(c.tsv_content, websearch_to_tsquery('english', :query), 32)` with optimizer predicate pushdown on `user_id = :userId` and `is_active = true`.
   * **Semantic Candidates Query**: Uses HNSW index `idx_chunks_hnsw` on `document_chunks.embedding` with cosine distance operator `<=>` via `1.0 - (c.embedding <=> CAST(:vectorStr AS vector))` with pushdown on `user_id = :userId` and `is_active = true`.
   * **Candidate Fusion & Reranking**: In-memory Reciprocal Rank Fusion ($k = 60$) with deterministic cross-signal reranking and provenance generation.
+
+### `V10__ai_assistant_enhancements.sql` (Phase 13)
+* **Conversation History Optimization**:
+  * Created composite index `idx_conversations_user_updated` on `conversations(user_id, last_message_at DESC)` for sub-5ms paginated listing of user conversations.
+* **Token Usage & Model Telemetry**:
+  * Enhanced `chat_messages` table with `prompt_tokens` (`INT DEFAULT 0`), `completion_tokens` (`INT DEFAULT 0`), and `model_name` (`VARCHAR(100)`).
+* **Provenance & Footnote Mapping**:
+  * Enhanced `message_citations` table with `citation_index` (`INT DEFAULT 1`), `section_title` (`VARCHAR(255)`), and `source_citation` (`VARCHAR(500)`) for end-to-end auditability and citation rendering.
+

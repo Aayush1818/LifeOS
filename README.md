@@ -196,7 +196,15 @@ LifeOS Architecture
 * **Multi-Tenant Pushdown & Defensive Authorization**: Strict SQL pushdown (`user_id = :userId`, `is_active = true`, `is_deleted = false`) plus secondary defensive in-memory ownership verification.
 * **Graceful Degradation & Hallucination Guardrails**: Automatic fallback to lexical FTS if external embedding providers are unavailable; relevance threshold filtering with `hasRelevantContext: false` signaling to prevent downstream hallucinations.
 
-### K. Automated Reminders & Notifications
+### K. Grounded AI Assistant & Multi-Role Conversational Pipeline (Phase 13 Implemented)
+* **Pluggable LLM Provider SPI**: Decoupled `LlmProvider` interface supporting local offline deterministic `MockLlmProvider` for tests/CI and `OpenAiCompatibleLlmProvider` for OpenAI, Azure OpenAI, Ollama, and vLLM runtimes.
+* **Grounded Context Assembly**: Context assembler formatting retrieved chunks with XML isolation delimiters (`<untrusted_document_source index="n">`), stripping internal database UUIDs, and escaping malicious tags.
+* **Prompt Injection Defense & Versioned Prompting**: Multi-role prompt engineering (`lifeos-assistant-2026-v1.0`) enforcing strict reference-only answering, instruction override immunity, sliding conversation memory (max 6 messages), and medical non-diagnostic guardrails.
+* **Traceable Footnote Verification**: Automated `CitationValidator` verifying inline footnote numbers (`[1]`, `[2]`), stripping hallucinated references, and linking validated citations to `message_citations` database records.
+* **Multi-Tenant Conversation Privacy**: Conversations (`conversations`) and message history (`chat_messages`) are strictly owned by `user_id`, with cross-tenant attempts returning RFC 7807 `404 Not Found`.
+* **Zero Autonomous Mutations**: The assistant is strictly conversational and information-providing, maintaining a rigorous boundary preventing accidental fund transfers or state mutations.
+
+### L. Automated Reminders & Notifications
 * Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
 
 ---

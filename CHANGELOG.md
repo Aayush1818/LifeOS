@@ -4,6 +4,36 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0-alpha] - 2026-09-20
+### Added
+* **Phase 13: Grounded AI Assistant & LLM Integration**
+  * Flyway Migration `V10__ai_assistant_enhancements.sql`:
+    * Created composite index `idx_conversations_user_updated` on `conversations(user_id, last_message_at DESC)` for high-performance paginated conversation loading.
+    * Enhanced `chat_messages` table with token telemetry columns (`prompt_tokens`, `completion_tokens`) and `model_name`.
+    * Enhanced `message_citations` table with display metadata (`citation_index`, `section_title`, `source_citation`).
+  * Pluggable LLM Provider SPI & Adapters (`com.lifeos.ai.llm`):
+    * `LlmProvider` Java SPI decoupling conversation logic from LLM runtime vendors.
+    * `MockLlmProvider`: deterministic, offline LLM mock supporting citation insertion, insufficient-context signaling, medical disclaimers, and simulated failure injection (`TRIGGER_TIMEOUT`, `TRIGGER_RATE_LIMIT`, `TRIGGER_SERVER_ERROR`).
+    * `OpenAiCompatibleLlmProvider`: production HTTP client utilizing Spring `RestClient` with configurable timeouts and exponential backoff retry.
+    * `LlmProperties`: configuration binder for `lifeos.assistant.llm` (`provider`, `baseUrl`, `apiKey`, `model`, `timeoutMs`, `maxRetries`).
+    * `LlmException`: typed runtime exception differentiating retryable vs non-retryable AI provider failures.
+  * Context Assembly & Prompt Engineering (`com.lifeos.ai.grounding`):
+    * `ContextAssembler`: formats retrieved Phase 12 chunks within XML `<untrusted_document_source index="n">` tags, escapes malicious embedded delimiters, and strips internal database UUIDs.
+    * `PromptBuilder`: constructs versioned system prompts (`lifeos-assistant-2026-v1.0`), enforces prompt injection immunity, bounds conversation history (max 6 turns), and embeds medical non-diagnostic guardrails.
+    * `CitationValidator`: parses inline footnote markers (`[1]`, `[2]`), cross-references them with the authorized source map, and purges hallucinated citations from persisted assistant messages.
+  * Multi-Tenant Conversation Session Services (`com.lifeos.ai.service`):
+    * `ConversationService`: CRUD operations on `conversations`, ensuring strict multi-tenant ownership (foreign access yields RFC 7807 `404 Not Found`).
+    * `AssistantService` / `DefaultAssistantService`: end-to-end conversation pipeline orchestrating Phase 12 Hybrid RAG retrieval, context assembly, LLM generation, citation validation, and atomic database persistence.
+  * REST API (`AssistantController`):
+    * `POST /api/v1/assistant/conversations`: create conversation session.
+    * `GET /api/v1/assistant/conversations`: paginated list of conversations ordered by recency.
+    * `GET /api/v1/assistant/conversations/{id}`: retrieve conversation details with message history and citations.
+    * `DELETE /api/v1/assistant/conversations/{id}`: delete conversation with cascading message and citation removal.
+    * `POST /api/v1/assistant/conversations/{id}/messages`: send user message, retrieve grounded context via Phase 12 RAG, and generate verified cited answer.
+  * Verification & Testing:
+    * 34 new automated tests bringing full suite to **190 / 190 tests passed** (0 failures, 0 errors, 0 skipped).
+    * **25 / 25 live HTTP verification checks passed** in `scratch/verify_phase13.ps1` testing health, CRUD, multi-tenant isolation (User B $\rightarrow$ 404), document grounding, insufficient information handling, medical safety disclaimers, input validation, and cleanup.
+
 ## [0.12.0-alpha] - 2026-09-19
 ### Added
 * **Phase 12: Hybrid RAG Retrieval Engine**

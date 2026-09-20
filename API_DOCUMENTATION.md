@@ -1547,5 +1547,202 @@ Retrieves the most relevant document chunks for answering user questions or powe
   * `401 Unauthorized`: Missing or invalid JWT.
   * `404 Not Found`: Filter `dependentId` does not belong to the authenticated user.
 
+---
 
+## 14. Grounded AI Assistant & LLM Integration (`/api/v1/assistant`)
 
+Phase 13 introduces conversational sessions backed by Phase 12's Hybrid RAG retrieval engine. All operations strictly enforce multi-tenant isolation (foreign user IDs yield `404 Not Found`).
+
+### `POST /api/v1/assistant/conversations`
+Creates a new conversation session.
+
+* **Request Body** (optional):
+  ```json
+  {
+    "title": "Health Insurance Inquiries"
+  }
+  ```
+* **Response `201 Created`**:
+  ```json
+  {
+    "success": true,
+    "message": "Conversation created successfully",
+    "timestamp": "2026-09-20T10:00:00Z",
+    "data": {
+      "id": "e5812e9b-cf39-444e-a10c-9828d9c19d45",
+      "title": "Health Insurance Inquiries",
+      "createdAt": "2026-09-20T10:00:00Z",
+      "lastMessageAt": "2026-09-20T10:00:00Z",
+      "messageCount": 0
+    }
+  }
+  ```
+* **Error Responses**:
+  * `401 Unauthorized`: Missing or invalid JWT.
+
+---
+
+### `GET /api/v1/assistant/conversations`
+Retrieves a paginated list of conversations owned by the authenticated user, ordered by `lastMessageAt` descending.
+
+* **Query Parameters**:
+  * `page` (default: 0): Page number.
+  * `size` (default: 20): Page size.
+  * `sort` (default: `lastMessageAt,desc`): Sorting direction.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Conversations retrieved successfully",
+    "timestamp": "2026-09-20T10:01:00Z",
+    "data": {
+      "content": [
+        {
+          "id": "e5812e9b-cf39-444e-a10c-9828d9c19d45",
+          "title": "Health Insurance Inquiries",
+          "createdAt": "2026-09-20T10:00:00Z",
+          "lastMessageAt": "2026-09-20T10:02:15Z",
+          "messageCount": 2
+        }
+      ],
+      "page": {
+        "size": 20,
+        "number": 0,
+        "totalElements": 1,
+        "totalPages": 1
+      }
+    }
+  }
+  ```
+
+---
+
+### `GET /api/v1/assistant/conversations/{id}`
+Retrieves a conversation and its full chronological message history with citations.
+
+* **Path Parameters**:
+  * `id` (UUID): Conversation ID.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Conversation details retrieved successfully",
+    "timestamp": "2026-09-20T10:02:30Z",
+    "data": {
+      "id": "e5812e9b-cf39-444e-a10c-9828d9c19d45",
+      "title": "Health Insurance Inquiries",
+      "createdAt": "2026-09-20T10:00:00Z",
+      "lastMessageAt": "2026-09-20T10:02:15Z",
+      "messages": [
+        {
+          "id": "7820712a-3949-4eb1-b4bb-7dce9519ae87",
+          "role": "USER",
+          "content": "What is the deductible on my health policy?",
+          "createdAt": "2026-09-20T10:02:14Z"
+        },
+        {
+          "id": "f519541a-a5df-424d-b655-0810db69ef21",
+          "role": "ASSISTANT",
+          "content": "Based on your uploaded documents, [1] confirms that your comprehensive annual policy deductible is $1500 per family member.",
+          "createdAt": "2026-09-20T10:02:15Z"
+        }
+      ]
+    }
+  }
+  ```
+* **Error Responses**:
+  * `401 Unauthorized`: Missing or invalid JWT.
+  * `404 Not Found`: Conversation does not exist or belongs to another user.
+
+---
+
+### `DELETE /api/v1/assistant/conversations/{id}`
+Deletes a conversation and cascades deletion to all associated messages and citations.
+
+* **Path Parameters**:
+  * `id` (UUID): Conversation ID.
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Conversation deleted successfully",
+    "timestamp": "2026-09-20T10:03:00Z",
+    "data": null
+  }
+  ```
+* **Error Responses**:
+  * `401 Unauthorized`: Missing or invalid JWT.
+  * `404 Not Found`: Conversation does not exist or belongs to another user.
+
+---
+
+### `POST /api/v1/assistant/conversations/{id}/messages`
+Sends a user message, performs Phase 12 Hybrid RAG retrieval across the user's authorized records, assembles XML-delimited context, invokes the pluggable LLM provider, validates inline citations (`[1]`), and persists the conversation turn.
+
+* **Path Parameters**:
+  * `id` (UUID): Conversation ID.
+* **Request Body**:
+  ```json
+  {
+    "content": "What is the deductible on my health insurance policy?",
+    "retrievalMode": "HYBRID",
+    "topK": 5,
+    "minScore": 0.01,
+    "filters": {
+      "categories": ["INSURANCE"]
+    }
+  }
+  ```
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Message processed successfully",
+    "timestamp": "2026-09-20T10:02:15Z",
+    "data": {
+      "conversationId": "e5812e9b-cf39-444e-a10c-9828d9c19d45",
+      "userMessage": {
+        "id": "7820712a-3949-4eb1-b4bb-7dce9519ae87",
+        "role": "USER",
+        "content": "What is the deductible on my health insurance policy?",
+        "createdAt": "2026-09-20T10:02:14Z"
+      },
+      "assistantMessage": {
+        "id": "f519541a-a5df-424d-b655-0810db69ef21",
+        "role": "ASSISTANT",
+        "content": "Based on your uploaded documents, [1] confirms that your comprehensive annual policy deductible is $1500 per family member.",
+        "createdAt": "2026-09-20T10:02:15Z"
+      },
+      "citations": [
+        {
+          "citationIndex": 1,
+          "documentId": "72e1ab07-1653-4878-9064-f66016745eb1",
+          "chunkId": "8bf10245-7762-4321-9988-aabbccddeeff",
+          "documentTitle": "Live Health Insurance Policy 2026",
+          "pageNumber": 1,
+          "sectionTitle": "HEALTH INSURANCE COVERAGE",
+          "sourceCitation": "[Live Health Insurance Policy 2026, Page 1, Section: HEALTH INSURANCE COVERAGE]",
+          "snippet": "Comprehensive annual policy deductible is $1500 per family member.",
+          "relevanceScore": 0.95
+        }
+      ],
+      "grounded": true,
+      "hasRelevantContext": true,
+      "usage": {
+        "promptTokens": 145,
+        "completionTokens": 32,
+        "totalTokens": 177
+      },
+      "modelMetadata": {
+        "provider": "MOCK",
+        "model": "mock-gpt-4o-mini",
+        "latencyMs": 42
+      }
+    }
+  }
+  ```
+* **Error Responses**:
+  * `400 Bad Request`: Message content is blank or exceeds character limits.
+  * `401 Unauthorized`: Missing or invalid JWT.
+  * `404 Not Found`: Conversation does not exist or belongs to another user.
+  * `502 Bad Gateway`: External LLM provider failure or upstream connection timeout.
