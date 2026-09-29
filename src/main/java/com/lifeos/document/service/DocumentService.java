@@ -3,6 +3,7 @@ package com.lifeos.document.service;
 import com.lifeos.common.exception.FileStorageException;
 import com.lifeos.common.exception.InvalidDocumentException;
 import com.lifeos.common.exception.ResourceNotFoundException;
+import com.lifeos.common.util.EncodingUtils;
 import com.lifeos.dependent.entity.DependentEntity;
 import com.lifeos.dependent.repository.DependentRepository;
 import com.lifeos.document.dto.DocumentChunkResponse;
@@ -111,8 +112,8 @@ public class DocumentService {
             DocumentEntity document = DocumentEntity.builder()
                     .user(user)
                     .dependent(dependent)
-                    .title(request.getTitle())
-                    .originalFilename(sanitizeFilename(file.getOriginalFilename()))
+                    .title(EncodingUtils.sanitizeForWin1252(request.getTitle()))
+                    .originalFilename(EncodingUtils.sanitizeForWin1252(sanitizeFilename(file.getOriginalFilename())))
                     .storagePath(storagePath)
                     .mimeType(detectedMimeType)
                     .fileSize(file.getSize())
@@ -120,13 +121,13 @@ public class DocumentService {
                     .documentType(request.getDocumentType())
                     .issueDate(request.getIssueDate())
                     .expiryDate(request.getExpiryDate())
-                    .tags(request.getTags() != null ? request.getTags() : new ArrayList<>())
+                    .tags(EncodingUtils.sanitizeList(request.getTags()))
                     .checksumSha256(checksumSha256)
                     .ingestionStatus(status)
                     .version(1)
-                    .extractedText(extraction.getExtractedText())
-                    .metadata(extraction.getMetadata())
-                    .extractionError(extraction.getErrorMessage())
+                    .extractedText(EncodingUtils.sanitizeForWin1252(extraction.getExtractedText()))
+                    .metadata(EncodingUtils.sanitizeMetadata(extraction.getMetadata()))
+                    .extractionError(EncodingUtils.sanitizeForWin1252(extraction.getErrorMessage()))
                     .build();
 
             DocumentEntity saved = documentRepository.save(document);
@@ -181,14 +182,14 @@ public class DocumentService {
 
         document.setVersion(document.getVersion() + 1);
         document.setStoragePath(newStoragePath);
-        document.setOriginalFilename(sanitizeFilename(file.getOriginalFilename()));
+        document.setOriginalFilename(EncodingUtils.sanitizeForWin1252(sanitizeFilename(file.getOriginalFilename())));
         document.setMimeType(detectedMimeType);
         document.setFileSize(file.getSize());
         document.setChecksumSha256(checksumSha256);
         document.setIngestionStatus(status);
-        document.setExtractedText(extraction.getExtractedText());
-        document.setMetadata(extraction.getMetadata());
-        document.setExtractionError(extraction.getErrorMessage());
+        document.setExtractedText(EncodingUtils.sanitizeForWin1252(extraction.getExtractedText()));
+        document.setMetadata(EncodingUtils.sanitizeMetadata(extraction.getMetadata()));
+        document.setExtractionError(EncodingUtils.sanitizeForWin1252(extraction.getErrorMessage()));
 
         DocumentEntity updated = documentRepository.save(document);
         if (status == IngestionStatus.PROCESSED) {

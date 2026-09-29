@@ -210,8 +210,36 @@ LifeOS Architecture
 * **Multi-Turn Orchestration & Loop Bounds**: Multi-turn agent loop bounded by `MAX_AGENT_TURNS = 3` with recursive tool-result feedback, prompt injection defenses, and strict multi-tenant authorization.
 * **100% Deterministic Financial & Analytical Math**: The LLM is strictly prohibited from estimating, halluncinating, or synthesizing calculations; all summaries are computed by compiled Java domain services.
 
-### M. Automated Reminders & Notifications
-* Daily scheduler scanning for upcoming policy renewals, loan EMIs, doctor visits, travel departures, return deadlines, and warranty expirations.
+### M. Modern Angular 20 SPA Experience (Phase 15 Implemented)
+* **Design System & Aesthetics**: Dark-mode glassmorphic interface with custom HSL tailored palettes, Inter/Outfit typography, and responsive grid layouts.
+* **Interactive AI Copilot**: Multi-turn chat feed, grounded footnote citations drawer (`[1]`, `[2]`), and inline **Human-in-the-Loop (HITL)** pending action cards for one-click approval/rejection.
+* **Knowledge Vault & Chunk Explorer**: Multi-category document management with drag-and-drop file upload, MIME validation, and pgvector HNSW layout-aware chunk inspection drawer.
+* **Unified Cross-Domain Search**: High-performance full-text search with debounced typeahead suggestions and entity filtering across all 14 LifeOS domain entities.
+* **Finance & Prepayment Simulator**: Real-time monthly cashflow analysis, interactive category budget bars with threshold alerts, and amortization schedule with prepayment impact simulator.
+* **Life Operations**: Comprehensive tabbed hub for healthcare consultations & biometrics, travel itinerary timelines, and warranty countdown tracking.
+
+### N. Automated Reminders & Notification Engine (Phase 16 Implemented)
+* **Background Due-Date Scanner**: Automated cron scheduler scanning due dates across domain entities: loan EMIs, insurance renewals, warranty expirations, healthcare appointments, and travel itineraries with 24-hour alert deduplication.
+* **Notification Engine & Channels**: In-app notifications with read tracking, channels (`IN_APP`, `EMAIL`, `WEBHOOK`), and composite partial index queries for real-time badge counts.
+* **Recurrence Rule Advancement**: Automated advancement of recurring tasks (`DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`) upon completion.
+* **Interactive Frontend Management**: Dedicated Reminders view with KPI counters (Active, Overdue, Due Soon, Completed), tab filters, priority tags, and glassmorphic Notification Bell flyout in the global navigation shell.
+
+### O. Security Audit Logging, GDPR Portability & Policy Comparison (Phase 17 Implemented)
+* **Asynchronous Audit Logging**: Event-driven decoupled audit trail capturing authentication events, HITL confirmation decisions, and privacy exports with client IP and user-agent logging.
+* **Multi-Domain GDPR Data Portability**: Comprehensive user data export compiling records across all 14 bounded contexts into an encrypted or downloadable JSON archive.
+* **Hybrid RAG Insurance Policy Comparison**: Comparative diffing engine cross-referencing insurance policy documents to highlight clause changes, coverage limits, exclusions, and cost differences.
+
+### P. Multi-Domain Financial Obligations & System Diagnostics (Phase 18 Implemented)
+* **Financial Obligation Synthesis**: Aggregates active Loan EMIs, Insurance Premiums & Renewals, Recurring Bills/Subscriptions, and Planned Travel Budgets for any target month with deterministic cash flow forecasting.
+* **Platform Diagnostics & Observability**: Real-time probes for PostgreSQL, native `pgvector`, Apache Tika extraction engine, and local storage write readiness; JVM telemetry and entity count metrics.
+* **Deterministic Agent Tool**: `get_monthly_obligations` auto-discovered and registered in the `LifeOSToolRegistry`.
+
+### Q. Proactive Life Insights, Financial Anomaly Detection & Optimization Engine (Phase 19 Implemented)
+* **Cross-Domain Anomaly Engine**: Extensible `InsightAnalyzer` SPI orchestrating 6 deterministic rule analyzers detecting category spending spikes (>150% trailing average), budget exhaustion (>80% depletion), high-interest loan prepayment savings (APR >= 7.5%), upcoming policy renewals and uninsured dependents, expiring equipment warranties, and travel/medical schedule conflicts.
+* **Autonomous Intelligence & State Machine**: Deduplication across runs, severity classification (`CRITICAL`, `WARNING`, `INFO`), and full state lifecycle transitions (one-click dismiss and action tracking).
+* **Deterministic Agent Tool**: `get_proactive_insights` enabling conversational querying of active platform anomalies and optimizations.
+* **Executive Dashboard Experience**: Real-time "Autonomous Optimization & Anomaly Engine" deck with live indicator, severity badges, and contextual action buttons with intelligent route navigation.
+
 
 ---
 

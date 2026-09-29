@@ -53,6 +53,10 @@ class DomainToolsTest {
     @Mock
     private FinanceAnalyticsService financeAnalyticsService;
     @Mock
+    private com.lifeos.finance.obligation.service.FinancialObligationService financialObligationService;
+    @Mock
+    private com.lifeos.insight.service.InsightService insightService;
+    @Mock
     private AppointmentService appointmentService;
     @Mock
     private TripService tripService;
@@ -124,6 +128,50 @@ class DomainToolsTest {
         when(financeAnalyticsService.getMonthlySummary(eq(userId), eq(9), eq(2026))).thenReturn(summary);
 
         ToolExecutionResult result = tool.execute(userId, Map.of("year", 2026, "month", 9));
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getOutput()).isEqualTo(summary);
+    }
+
+    @Test
+    @DisplayName("MonthlyObligationsTool should invoke financial obligation service")
+    void testMonthlyObligationsTool() {
+        MonthlyObligationsTool tool = new MonthlyObligationsTool(financialObligationService);
+        assertThat(tool.getName()).isEqualTo("get_monthly_obligations");
+        assertThat(tool.requiresConfirmation()).isFalse();
+
+        com.lifeos.finance.obligation.dto.MonthlyObligationSummaryResponse response =
+                com.lifeos.finance.obligation.dto.MonthlyObligationSummaryResponse.builder()
+                        .year(2026)
+                        .month(10)
+                        .totalObligationAmount(new BigDecimal("2980.00"))
+                        .projectedIncome(new BigDecimal("5000.00"))
+                        .netSurplusOrDeficit(new BigDecimal("2020.00"))
+                        .build();
+
+        when(financialObligationService.getMonthlyObligations(eq(userId), eq(10), eq(2026))).thenReturn(response);
+
+        ToolExecutionResult result = tool.execute(userId, Map.of("year", 2026, "month", 10));
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getOutput()).isEqualTo(response);
+    }
+
+    @Test
+    @DisplayName("ProactiveInsightsTool should invoke insight service and return summary")
+    void testProactiveInsightsTool() {
+        ProactiveInsightsTool tool = new ProactiveInsightsTool(insightService);
+        assertThat(tool.getName()).isEqualTo("get_proactive_insights");
+        assertThat(tool.requiresConfirmation()).isFalse();
+
+        com.lifeos.insight.dto.InsightSummaryResponse summary =
+                com.lifeos.insight.dto.InsightSummaryResponse.builder()
+                        .totalActive(2)
+                        .warningCount(1)
+                        .criticalCount(1)
+                        .build();
+
+        when(insightService.getActiveInsights(eq(userId), eq(com.lifeos.insight.entity.InsightSeverity.WARNING))).thenReturn(summary);
+
+        ToolExecutionResult result = tool.execute(userId, Map.of("minSeverity", "WARNING"));
         assertThat(result.isSuccess()).isTrue();
         assertThat(result.getOutput()).isEqualTo(summary);
     }

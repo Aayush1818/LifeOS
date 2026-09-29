@@ -14,6 +14,9 @@ import com.lifeos.ai.conversation.entity.Conversation;
 import com.lifeos.ai.conversation.entity.MessageRole;
 import com.lifeos.ai.conversation.repository.ChatMessageRepository;
 import com.lifeos.ai.conversation.repository.ConversationRepository;
+import com.lifeos.audit.entity.AuditEventType;
+import com.lifeos.audit.entity.AuditOutcome;
+import com.lifeos.audit.event.SecurityAuditEvent;
 import com.lifeos.common.exception.ResourceNotFoundException;
 import com.lifeos.user.entity.UserEntity;
 import com.lifeos.user.repository.UserRepository;
@@ -41,6 +44,7 @@ public class ActionConfirmationService {
     private final UserRepository userRepository;
     private final LifeOSToolRegistry toolRegistry;
     private final ObjectMapper objectMapper;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public PendingActionDto createPendingAction(
@@ -126,6 +130,13 @@ public class ActionConfirmationService {
             chatMessageRepository.save(executionNote);
         }
 
+        eventPublisher.publishEvent(SecurityAuditEvent.builder()
+                .userId(userId)
+                .eventType(AuditEventType.ACTION_HITL_CONFIRMED)
+                .outcome(result.isSuccess() ? AuditOutcome.SUCCESS : AuditOutcome.FAILURE)
+                .details(String.format("{\"toolName\":\"%s\",\"actionId\":\"%s\"}", action.getToolName(), actionId))
+                .build());
+
         return ActionExecutionResponse.builder()
                 .actionId(actionId)
                 .toolName(action.getToolName())
@@ -159,6 +170,13 @@ public class ActionConfirmationService {
                     .build();
             chatMessageRepository.save(cancelNote);
         }
+
+        eventPublisher.publishEvent(SecurityAuditEvent.builder()
+                .userId(userId)
+                .eventType(AuditEventType.ACTION_HITL_REJECTED)
+                .outcome(AuditOutcome.SUCCESS)
+                .details(String.format("{\"toolName\":\"%s\",\"actionId\":\"%s\"}", action.getToolName(), actionId))
+                .build());
 
         return ActionExecutionResponse.builder()
                 .actionId(actionId)

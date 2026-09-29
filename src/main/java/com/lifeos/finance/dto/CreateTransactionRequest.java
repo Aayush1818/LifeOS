@@ -37,8 +37,12 @@ public class CreateTransactionRequest {
     @NotNull(message = "Transaction date is required")
     private LocalDate transactionDate;
 
-    @NotNull(message = "Payment method is required")
-    private PaymentMethod paymentMethod;
+    @Builder.Default
+    private PaymentMethod paymentMethod = PaymentMethod.OTHER;
+
+    public PaymentMethod getPaymentMethod() {
+        return paymentMethod != null ? paymentMethod : PaymentMethod.OTHER;
+    }
 
     @NotBlank(message = "Description is required")
     @Size(max = 255, message = "Description must not exceed 255 characters")

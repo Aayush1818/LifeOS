@@ -24,4 +24,7 @@ public interface TripRepository extends JpaRepository<TripEntity, UUID> {
     List<TripEntity> findAllByUserIdAndStartDateBetweenAndIsDeletedFalse(UUID userId, LocalDate start, LocalDate end);
 
     List<TripEntity> findAllByUserIdAndEndDateGreaterThanEqualAndIsDeletedFalseOrderByStartDateAsc(UUID userId, LocalDate today);
+
+    List<TripEntity> findAllByUserIdAndStartDateLessThanEqualAndEndDateGreaterThanEqualAndIsDeletedFalse(
+            UUID userId, LocalDate endOfMonth, LocalDate startOfMonth);
 }

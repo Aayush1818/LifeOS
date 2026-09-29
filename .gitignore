@@ -68,7 +68,7 @@ desktop.ini
 *.key
 
 # Application File Uploads & Local DBs
-uploads/
-storage/
-data/
+/uploads/
+/storage/
+/data/
 *.h2.db

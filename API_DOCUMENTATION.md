@@ -1855,3 +1855,112 @@ Explicitly cancels and rejects a pending action without executing any underlying
   * `401 Unauthorized`: Missing or invalid JWT.
   * `404 Not Found`: Action does not exist or belongs to another tenant.
 
+---
+
+## 16. Proactive Life Insights & Anomaly Detection (`/api/v1/insights`) (Phase 19)
+
+Cross-domain proactive intelligence engine that detects spending surges, budget depletion risks, high-interest debt payoffs, insurance coverage gaps, expiring product warranties, and schedule conflicts across trips and medical appointments.
+
+### `GET /api/v1/insights`
+Retrieves all active, un-dismissed proactive insights for the authenticated user, optionally filtered by severity.
+
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Query Parameters**:
+  * `severity` (optional string): `INFO`, `WARNING`, `CRITICAL`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Active insights retrieved successfully",
+    "timestamp": "2026-09-21T10:30:00Z",
+    "data": {
+      "totalActive": 2,
+      "criticalCount": 0,
+      "warningCount": 1,
+      "infoCount": 1,
+      "insights": [
+        {
+          "id": "f29b47cf-341a-4d76-bc39-a8360d8a5712",
+          "insightType": "SPENDING_SURGE",
+          "severity": "WARNING",
+          "title": "Spending Surge in FOOD_DINING",
+          "description": "You have spent $450.00 on FOOD_DINING this month, exceeding your 3-month trailing monthly average of $220.00 by 104%.",
+          "actionType": "VIEW_BUDGET",
+          "actionPayload": {
+            "category": "FOOD_DINING",
+            "currentSpend": 450.00,
+            "trailingMonthlyAvg": 220.00,
+            "surgeRatio": 2.05
+          },
+          "isDismissed": false,
+          "isActioned": false,
+          "createdAt": "2026-09-21T10:30:00Z"
+        }
+      ]
+    }
+  }
+  ```
+
+---
+
+### `POST /api/v1/insights/generate`
+Forces an immediate execution of all 6 cross-domain rule analyzers, deduplicates existing active insights, persists newly detected anomalies, and returns the updated active insight summary.
+
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Insights analyzed and refreshed successfully",
+    "timestamp": "2026-09-21T10:30:15Z",
+    "data": {
+      "totalActive": 3,
+      "criticalCount": 1,
+      "warningCount": 1,
+      "infoCount": 1,
+      "insights": [ ... ]
+    }
+  }
+  ```
+
+---
+
+### `POST /api/v1/insights/{id}/dismiss`
+Dismisses an insight, hiding it from the active dashboard card deck without deleting historical anomaly logs.
+
+* **Path Parameters**:
+  * `id` (UUID): Insight ID.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Insight dismissed successfully",
+    "data": {
+      "id": "f29b47cf-341a-4d76-bc39-a8360d8a5712",
+      "isDismissed": true
+    }
+  }
+  ```
+
+---
+
+### `POST /api/v1/insights/{id}/action`
+Marks an insight as actioned following user navigation or resolution.
+
+* **Path Parameters**:
+  * `id` (UUID): Insight ID.
+* **Headers**: `Authorization: Bearer <access_jwt>`
+* **Response `200 OK`**:
+  ```json
+  {
+    "success": true,
+    "message": "Insight action recorded successfully",
+    "data": {
+      "id": "f29b47cf-341a-4d76-bc39-a8360d8a5712",
+      "isActioned": true
+    }
+  }
+  ```
+
+

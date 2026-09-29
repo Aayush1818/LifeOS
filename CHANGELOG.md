@@ -4,6 +4,171 @@ All notable changes to the **LifeOS** platform will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.19.0-alpha] - 2026-09-21
+### Added
+* **Phase 19: Proactive Life Insights, Financial Anomaly Detection & Cross-Domain Optimization Engine**
+  * Database Migration & Persistence (`V14__proactive_insights_and_anomalies.sql`):
+    * Created `insights` table with user foreign key, insight type, severity classification, title, description, action type, JSONB action payload, dismiss flag, and action flag.
+    * Created composite index `idx_insights_user_active` (`user_id, is_dismissed, created_at DESC`) and type index `idx_insights_user_type`.
+  * Cross-Domain Rule Engine & Analyzers (`com.lifeos.insight.analyzer`):
+    * `InsightAnalyzer` extensible SPI enabling pluggable detection across all bounded contexts.
+    * `SpendingSurgeAnalyzer`: Spikes exceeding 150% of trailing 3-month monthly average in any expense category.
+    * `BudgetDepletionAnalyzer`: Severe budget burn rate (>80% exhausted with >25% of month remaining; >100% critical).
+    * `HighInterestDebtAnalyzer`: Identifies active loans with APR >= 7.5% recommending lump-sum prepayment simulation to save interest.
+    * `InsuranceGapAnalyzer`: Detects policies renewing in <30 days and family dependents lacking active health insurance coverage.
+    * `ExpiringWarrantyAnalyzer`: Detects tracked equipment/devices whose warranties expire in <30 days.
+    * `ScheduleConflictAnalyzer`: Detects doctor appointments conflicting with planned travel dates.
+  * Autonomous Insight Orchestration Service (`com.lifeos.insight.service`):
+    * `DefaultInsightService`: Orchestrates all 6 analyzers with multi-tenant isolation, deduplication across repetitive executions, and state transitions (dismiss and action).
+    * Monetary precision: 100% `BigDecimal` with `RoundingMode.HALF_UP` (scale 2).
+  * REST API (`InsightController`):
+    * `GET /api/v1/insights`: Lists active un-dismissed insights with severity filtering.
+    * `POST /api/v1/insights/generate`: Forces immediate cross-domain analysis scan and persists newly detected anomalies.
+    * `POST /api/v1/insights/{id}/dismiss`: Dismisses an insight from active view.
+    * `POST /api/v1/insights/{id}/action`: Marks insight as actioned.
+  * Deterministic AI Agent Tool (`com.lifeos.ai.agent.tool.domain.ProactiveInsightsTool`):
+    * Registered tool `get_proactive_insights` in `LifeOSToolRegistry` enabling natural language conversational queries about active anomalies and optimization recommendations.
+  * Angular 20 Frontend Integration:
+    * `InsightService`: Angular service for insights generation, dismissal, and action dispatch.
+    * Dashboard UI (`dashboard.component.ts`): Executive "Autonomous Optimization & Anomaly Engine" deck with pulsing live indicator, severity badges (`CRITICAL`, `WARNING`, `INFO`), contextual action buttons ("Review Budget", "Simulate Prepayment", "Manage Policy", "Inspect Warranty", "Resolve Conflict") with route dispatching, and one-click dismiss.
+    * Real-time "Scan Anomalies" analysis trigger in dashboard header.
+  * Verification & Testing:
+    * New automated integration test suites: `InsightEngineTest`, `InsightControllerTest`, and unit test in `DomainToolsTest`.
+    * Entire regression test suite passing with 0 failures and 0 errors.
+    * Production Angular build (`npm run build`) passing with **0 errors, 0 warnings**.
+    * Live verification script: `scratch/verify_phase19.ps1`.
+
+## [0.18.0-alpha] - 2026-09-21
+### Added
+* **Phase 18: Multi-Domain Financial Obligations Engine & System Diagnostics Subsystem**
+  * Financial Obligation Synthesis Engine (`com.lifeos.finance.obligation`):
+    * Real-time aggregation of active Loan EMIs, Insurance Premiums & Renewals, Recurring Bills/Subscriptions, and Planned Travel Budgets for any target month and year.
+    * Real-time cash flow forecasting computing projected income and net surplus/deficit.
+    * REST API: `GET /api/v1/finance/obligations/monthly?month=X&year=Y` with strict multi-tenant isolation and 401 unauthorized protection.
+    * Precision: 100% `BigDecimal` with `RoundingMode.HALF_UP` (scale 2).
+  * Deterministic AI Agent Tool (`com.lifeos.ai.agent.tool.domain.MonthlyObligationsTool`):
+    * Tool `get_monthly_obligations` auto-discovered and registered in `LifeOSToolRegistry`.
+    * Enables natural language queries regarding upcoming monthly obligations and cash flow.
+  * System Health, Diagnostics & Observability Subsystem (`com.lifeos.system`):
+    * Live probes for PostgreSQL connectivity & latency, native `pgvector` extension status, local document storage capacity & write permission, and Apache Tika extraction engine.
+    * Platform metrics aggregation: Total counts for Users, Documents, Transactions, Loans, Policies, Trips, Reminders; JVM used/max memory and available CPU cores; disk free/total space.
+    * REST API: `GET /api/v1/system/health` (publicly accessible for probes) and `GET /api/v1/system/metrics` (authenticated).
+  * Angular 20 Frontend Integration:
+    * `SystemService`: Angular service connecting to obligations and diagnostics endpoints.
+    * Finance & Budgets (`finance.component.ts`): Monthly Obligations & Cash Flow Synthesis section featuring interactive month navigation, total obligations, projected income, net cash flow pill (surplus/deficit), domain breakdown chips, and chronological payment timeline table.
+    * Global Shell (`shell.component.ts`): Live System Status pill with glowing indicator (`UP`, `DEGRADED`, `DOWN`) and interactive Diagnostics & Observability modal displaying live component probes and platform metrics.
+    * Style Budget Configuration (`angular.json`): Adjusted `anyComponentStyle` budget to 20kB to ensure 0 build warnings.
+  * Testing & Verification:
+    * New automated integration test suites: `MonthlyObligationTest`, `SystemDiagnosticsTest`, and unit tests in `DomainToolsTest`.
+    * Entire backend test suite: **239 tests passing** (0 failures, 0 errors, 100% pass rate).
+    * Production Angular build (`npm run build`) passing with **0 errors, 0 warnings**.
+    * Live verification script: `scratch/verify_phase18.ps1`.
+
+## [0.17.0-alpha] - 2026-09-21
+### Added
+* **Phase 17: Security Audit Logging, GDPR Data Portability & Insurance Policy Comparison Engine**
+  * Database Migration & Persistence (`V13__audit_logs_and_security.sql`):
+    * Created `audit_logs` table with user foreign key, event classification, action outcome, client IP address, user-agent signature, and JSONB event details.
+    * Created composite index `idx_audit_logs_user_date` (`user_id, created_at DESC`) and `idx_audit_logs_event_type`.
+  * Security Audit Subsystem (`com.lifeos.audit`):
+    * Enums `AuditEventType` and `AuditOutcome` capturing auth, HITL, privacy, document, and policy comparison actions.
+    * `DefaultAuditService`: Asynchronous `@EventListener` handling `SecurityAuditEvent` events decoupled from core request paths.
+    * REST API `GET /api/v1/audit/logs` with multi-tenant isolation and event filtering.
+    * Integrated event publishing across `AuthService` (`login`, `logout`, `token-refresh`) and `ActionConfirmationService` (`confirm`, `reject`).
+  * Multi-Domain GDPR Data Portability Subsystem (`com.lifeos.user.export`):
+    * `LifeOSUserExportDto`: Standardized aggregate export schema spanning all 14 bounded contexts (Profile, Dependents, Transactions, Recurring, Budgets, Loans, Insurance, Appointments, Trips, Assets, Reminders, Notifications, Documents, Conversations).
+    * `DefaultDataExportService`: Multi-repository data compilation with tenant isolation and audit dispatch.
+    * REST API `GET /api/v1/users/me/export` providing direct attachment download.
+  * Insurance Policy Comparison Engine (`com.lifeos.insurance.comparison`):
+    * `DefaultPolicyComparisonService`: Hybrid RAG and LLM clause diffing engine identifying coverage limit changes, deductibles, exclusions, and premium adjustments.
+    * Enforces strict cross-tenant document security returning RFC 7807 `404 Not Found`.
+    * Dispatches `POLICY_COMPARISON_EXECUTED` audit event.
+    * REST API `POST /api/v1/insurance/policies/compare`.
+  * Angular 20 Frontend Integration:
+    * `AuditService`: Methods for audit log queries, GDPR blob archive download, and policy comparison.
+    * Global Shell (`shell.component.ts`): One-click "GDPR Export" download and interactive "Security Logs" audit modal.
+    * Loans & Insurance UI (`loans-insurance.component.ts`): "Compare Policies" action modal with document selector, executive summary, added/removed benefits grid, clause diff table with impact pills, and AI recommendation card.
+  * Verification & Testing:
+    * New automated test suites: `AuditControllerTest`, `DataExportTest`, `PolicyComparisonTest`.
+    * Complete regression test suite of **232 tests passing** (0 failures, 0 errors).
+    * Production Angular build (`npm run build`) passing with **0 errors, 0 warnings**.
+
+## [0.16.0-alpha] - 2026-09-21
+### Added
+* **Phase 16: Automated Reminders, Background Due-Date Scanner & Notification Engine**
+  * Database Migration & Persistence (`V12__notifications_and_audit.sql`):
+    * Created `notifications` table storing in-app, email, and webhook alerts with user isolation, JSONB metadata, read timestamp, and channel categorization.
+    * Created composite partial index `idx_notifications_user_unread` (`WHERE is_read = FALSE`) for low-latency notification bell badge queries.
+    * Created index `idx_notifications_user_created` for paginated reverse-chronological notification list retrieval.
+  * Domain Entities, Enums & Repositories (`com.lifeos.reminder`):
+    * `NotificationType`: `REMINDER_DUE`, `LOAN_EMI`, `INSURANCE_EXPIRY`, `WARRANTY_EXPIRY`, `APPOINTMENT_ALERT`, `SYSTEM`.
+    * `NotificationChannel`: `IN_APP`, `EMAIL`, `WEBHOOK`.
+    * `NotificationEntity`: Audited JPA entity extending `BaseEntity` with user ID, notification type, title, message, channel, read state, read timestamp, action URL, and JSONB metadata.
+    * `NotificationRepository`: Spring Data repository with multi-tenant pagination, countByUserIdAndReadFalse, and bulk markAllAsRead.
+    * `ReminderRepository`: Extended with multi-tenant pagination (`findByUserIdAndStatus`), and date-range queries for due items and upcoming deadlines.
+  * Automated Background Scanner & Notification Service:
+    * `ReminderScannerScheduler`: Periodic cron background scanner scanning due dates across domain tables:
+      * Standard reminders approaching or at due date (`REMINDER_DUE`).
+      * Active loans with EMI due day within upcoming warning window (`LOAN_EMI`).
+      * Insurance policies expiring or up for renewal within 14 days (`INSURANCE_EXPIRY`).
+      * Active equipment/device warranties expiring within 30 days (`WARRANTY_EXPIRY`).
+      * Healthcare appointments scheduled in the next 24 hours (`APPOINTMENT_ALERT`).
+    * Implemented 24-hour notification deduplication to prevent redundant alerts across periodic scans.
+    * `DefaultReminderService`: Complete lifecycle management (create, update, complete, dismiss, delete) with automatic recurrence advancement (`DAILY`, `WEEKLY`, `MONTHLY`, `YEARLY`).
+  * REST API Controllers:
+    * `/api/v1/reminders`: Endpoints for listing, filtering, upcoming, overdue, creation, updating, completion, dismissal, and deletion with strict multi-tenant 404 security.
+    * `/api/v1/notifications`: Endpoints for paginated alerts, unread count badge, mark-as-read, mark-all-read, and deletion.
+  * Frontend UI Integration:
+    * `RemindersComponent`: Full-featured management UI with 4 KPI cards (Active, Overdue, Due Soon, Completed), tab filters, priority filters, action items list, and modal dialog for new reminders.
+    * Notification Bell in `ShellComponent`: Interactive bell icon with animated unread badge counter and glassmorphic dropdown flyout with real-time mark-as-read and navigation.
+    * Registered `/reminders` route in `app.routes.ts` protected by `authGuard`.
+  * Verification & Testing:
+    * Integration tests `ReminderControllerTest` and `NotificationControllerTest` passing with 100% assertions.
+    * Full suite of 222 tests passing across all domain packages against PostgreSQL 18 with `pgvector`.
+    * Angular 20 SPA compiled cleanly (`npm run build`) with 0 errors and 0 warnings.
+
+## [0.15.0-alpha] - 2026-09-21
+### Added
+* **Phase 15: Full Frontend UI Integration & LifeOS Modern SPA Experience**
+  * Angular 20 SPA Architecture & Core Setup:
+    * Integrated stateless JWT session handling with `authInterceptor` injecting `Authorization: Bearer <token>`.
+    * Implemented route guards (`authGuard`) protecting all domain dashboards and views with automatic redirection to `/auth`.
+    * Configured proxy (`proxy.conf.json`) routing `/api` traffic cleanly to the Spring Boot backend (`http://localhost:8080`).
+    * Implemented state-of-the-art dark-mode glassmorphic design system (`styles.css`) with Inter and Outfit typography, micro-interactions, responsive grids, and tailored HSL color palettes.
+  * AI Assistant & Safe Agentic Interface (`AssistantComponent`):
+    * Multi-turn chat interface with live session manager (create, switch, delete conversations).
+    * Provenance footnote badge pills (`[1]`, `[2]`) linked to verified sources.
+    * Interactive **Human-in-the-Loop (HITL) Action Confirmation Cards**: displays tool name, JSON parameters, expiry status, and atomic "Approve & Execute" / "Reject" buttons integrating directly with Phase 14 `AgentActionController`.
+    * Citations flyout drawer inspecting document titles, section titles, page numbers, and exact grounded text excerpts.
+    * Prompt starter chips for domain queries (loans, insurance, budgeting, healthcare).
+  * Document Intelligence & Knowledge Vault (`DocumentsComponent`):
+    * Document catalog with multi-category filtering (`FINANCE`, `LEGAL`, `HEALTHCARE`, `TAX`, etc.).
+    * Secure file upload with MIME type detection, file size checks, and Apache Tika text extraction status.
+    * **RAG Chunk Explorer Drawer**: inspects layout-aware chunks (`DocumentChunk`), 1536-dim vector status, token counts, and section breadcrumbs.
+    * Direct file download and soft-deletion.
+  * Unified Cross-Domain Search (`SearchComponent`):
+    * Full-text search bar with debounced input and rapid typeahead autocomplete suggestions (`/api/v1/search/suggest`).
+    * Entity filter pills for all domain entities (Documents, Transactions, Loans, Policies, Appointments, Trips, Assets, Warranties).
+    * Highlights search term matches via PostgreSQL `ts_headline` markers with formatted tags and amounts.
+  * Personal Finance & Monthly Budgeting (`FinanceComponent`):
+    * Financial metrics grid (Monthly Income, Net Expenses with refund deductions, Net Savings, Savings Rate %).
+    * Interactive monthly budget cards with threshold progress bars (Green, Amber, Red).
+    * Paginated transaction ledger with category badges, refund tags, and sorting.
+    * Interactive modal for recording new income and expense entries.
+    * Recurring subscriptions and bills tracker.
+  * Loans & Insurance Portfolio (`LoansInsuranceComponent`):
+    * Active loans cards with outstanding balance, interest rate, tenure, and monthly EMI.
+    * **Interactive Prepayment Impact Simulator**: computes exact interest saved and tenure reduction in real time via backend amortization engine.
+    * Amortization schedule drawer showing month-by-month principal vs interest breakdown.
+    * Insurance policy cards with provider details, premium schedule, and renewal deadline warnings.
+  * Life Operations Management (`LifeOperationsComponent`):
+    * Tabbed view covering:
+      * **Healthcare**: Upcoming consultations, doctor specialties, clinic locations, and biometric vitals logs.
+      * **Travel**: Trips with destination, dates, budget, and sequential itinerary timeline.
+      * **Assets & Warranties**: Catalog of registered devices/appliances, warranty expiration countdowns, and claim statuses.
+  * Verification & Testing:
+    * Clean Angular 20 production compilation (`npm run build`) with zero TypeScript errors, template errors, or budget warnings.
+
 ## [0.14.0-alpha] - 2026-09-20
 ### Added
 * **Phase 14: Safe Agentic AI & Tool Calling Integration**

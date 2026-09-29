@@ -49,6 +49,8 @@ class ActionConfirmationServiceTest {
     private UserRepository userRepository;
     @Mock
     private LifeOSToolRegistry toolRegistry;
+    @Mock
+    private org.springframework.context.ApplicationEventPublisher eventPublisher;
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 

@@ -31,6 +31,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.UUID;
 
 @RestController
@@ -41,6 +42,7 @@ import java.util.UUID;
 public class DocumentController {
 
     private final DocumentService documentService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Upload and process document", description = "Uploads a document with metadata, performs content magic-byte MIME detection, extracts text, and stores safely.")
@@ -52,11 +54,44 @@ public class DocumentController {
     public ResponseEntity<ApiResponse<DocumentResponse>> uploadDocument(
             @Parameter(description = "Document binary file (PDF, DOCX, TXT, images)")
             @RequestPart("file") MultipartFile file,
-            @Parameter(description = "Document metadata JSON payload")
-            @Valid @RequestPart("metadata") UploadDocumentRequest metadata
+            @RequestParam(value = "title", required = false) String titleParam,
+            @RequestParam(value = "category", required = false) String categoryParam,
+            @RequestParam(value = "documentType", required = false) String documentTypeParam,
+            @RequestParam(value = "dependentId", required = false) UUID dependentId,
+            @RequestParam(value = "metadata", required = false) String metadataParam,
+            @RequestPart(value = "metadata", required = false) MultipartFile metadataFile
     ) {
+        UploadDocumentRequest request = null;
+        if (metadataParam != null && !metadataParam.isBlank()) {
+            try {
+                request = objectMapper.readValue(metadataParam, UploadDocumentRequest.class);
+            } catch (Exception ignored) {}
+        }
+        if (request == null && metadataFile != null && !metadataFile.isEmpty()) {
+            try {
+                request = objectMapper.readValue(metadataFile.getInputStream(), UploadDocumentRequest.class);
+            } catch (Exception ignored) {}
+        }
+        if (request == null) {
+            String fallbackTitle = (titleParam != null && !titleParam.isBlank())
+                    ? titleParam.trim()
+                    : (file.getOriginalFilename() != null ? file.getOriginalFilename() : "Untitled Document");
+            DocumentCategory fallbackCategory = DocumentCategory.fromString(categoryParam);
+            request = UploadDocumentRequest.builder()
+                    .title(fallbackTitle)
+                    .category(fallbackCategory)
+                    .dependentId(dependentId)
+                    .build();
+        } else {
+            if (request.getTitle() == null || request.getTitle().isBlank()) {
+                request.setTitle(titleParam != null && !titleParam.isBlank() ? titleParam.trim() : file.getOriginalFilename());
+            }
+            if (request.getCategory() == null) {
+                request.setCategory(DocumentCategory.fromString(categoryParam));
+            }
+        }
         UUID currentUserId = SecurityUtils.getCurrentUserId();
-        DocumentResponse response = documentService.uploadDocument(file, metadata, currentUserId);
+        DocumentResponse response = documentService.uploadDocument(file, request, currentUserId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "Document uploaded successfully"));
     }

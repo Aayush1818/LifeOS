@@ -26,4 +26,6 @@ public interface BudgetRepository extends JpaRepository<BudgetEntity, UUID> {
             int budgetMonth,
             int budgetYear
     );
+
+    List<BudgetEntity> findAllByUserIdAndIsDeletedFalse(UUID userId);
 }

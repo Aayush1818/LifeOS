@@ -24,6 +24,8 @@ public interface InsurancePolicyRepository extends JpaRepository<InsurancePolicy
 
     Page<InsurancePolicyEntity> findAllByUserIdAndStatusAndIsDeletedFalse(UUID userId, PolicyStatus status, Pageable pageable);
 
+    List<InsurancePolicyEntity> findAllByUserIdAndStatusAndIsDeletedFalse(UUID userId, PolicyStatus status);
+
     List<InsurancePolicyEntity> findAllByUserIdAndStatusAndNextRenewalDateBetweenAndIsDeletedFalse(
             UUID userId, PolicyStatus status, LocalDate startDate, LocalDate endDate);
 

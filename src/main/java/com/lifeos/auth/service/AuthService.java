@@ -13,6 +13,9 @@ import com.lifeos.user.dto.UserResponse;
 import com.lifeos.user.entity.Role;
 import com.lifeos.user.entity.UserEntity;
 import com.lifeos.user.repository.UserRepository;
+import com.lifeos.audit.entity.AuditEventType;
+import com.lifeos.audit.entity.AuditOutcome;
+import com.lifeos.audit.event.SecurityAuditEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -39,6 +42,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider jwtTokenProvider;
     private final AuthenticationManager authenticationManager;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -92,6 +96,13 @@ public class AuthService {
 
             log.info("User {} successfully authenticated", user.getId());
 
+            eventPublisher.publishEvent(SecurityAuditEvent.builder()
+                    .userId(user.getId())
+                    .eventType(AuditEventType.AUTH_LOGIN_SUCCESS)
+                    .outcome(AuditOutcome.SUCCESS)
+                    .details(String.format("{\"email\":\"%s\"}", user.getEmail()))
+                    .build());
+
             return AuthResponse.builder()
                     .accessToken(accessToken)
                     .tokenType("Bearer")
@@ -101,6 +112,12 @@ public class AuthService {
                     .build();
         } catch (BadCredentialsException e) {
             log.warn("Failed login attempt for email: {}", request.getEmail());
+            eventPublisher.publishEvent(SecurityAuditEvent.builder()
+                    .userId(null)
+                    .eventType(AuditEventType.AUTH_LOGIN_FAILURE)
+                    .outcome(AuditOutcome.FAILURE)
+                    .details(String.format("{\"attemptedEmail\":\"%s\"}", request.getEmail()))
+                    .build());
             throw new UnauthorizedAccessException("Invalid email or password");
         }
     }
@@ -130,6 +147,12 @@ public class AuthService {
 
         log.info("Rotated refresh token for user {}", user.getId());
 
+        eventPublisher.publishEvent(SecurityAuditEvent.builder()
+                .userId(user.getId())
+                .eventType(AuditEventType.AUTH_TOKEN_REFRESH)
+                .outcome(AuditOutcome.SUCCESS)
+                .build());
+
         return AuthResponse.builder()
                 .accessToken(newAccessToken)
                 .tokenType("Bearer")
@@ -143,6 +166,12 @@ public class AuthService {
     public void logout(UUID userId) {
         refreshTokenRepository.revokeAllByUserId(userId);
         log.info("Revoked all refresh tokens for user {}", userId);
+
+        eventPublisher.publishEvent(SecurityAuditEvent.builder()
+                .userId(userId)
+                .eventType(AuditEventType.AUTH_LOGOUT)
+                .outcome(AuditOutcome.SUCCESS)
+                .build());
     }
 
     @Transactional

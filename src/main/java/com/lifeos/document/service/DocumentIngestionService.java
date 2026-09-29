@@ -1,6 +1,7 @@
 package com.lifeos.document.service;
 
 import com.lifeos.common.exception.ResourceNotFoundException;
+import com.lifeos.common.util.EncodingUtils;
 import com.lifeos.document.chunking.DocumentChunk;
 import com.lifeos.document.chunking.DocumentChunker;
 import com.lifeos.document.dto.DocumentChunkResponse;
@@ -161,15 +162,15 @@ public class DocumentIngestionService {
                     .userId(userId)
                     .documentVersion(document.getVersion())
                     .chunkIndex(chunk.getChunkIndex())
-                    .content(chunk.getContent())
+                    .content(EncodingUtils.sanitizeForWin1252(chunk.getContent()))
                     .embedding(vector)
                     .pageNumber(chunk.getPageNumber())
-                    .sectionTitle(chunk.getSectionTitle())
+                    .sectionTitle(EncodingUtils.sanitizeForWin1252(chunk.getSectionTitle()))
                     .tokenCount(chunk.getTokenCount())
                     .charCount(chunk.getCharCount())
                     .isActive(true)
                     .embeddingModel(embeddingProvider.getModelName())
-                    .metadata(chunkMeta)
+                    .metadata(EncodingUtils.sanitizeMetadata(chunkMeta))
                     .build());
         }
 
